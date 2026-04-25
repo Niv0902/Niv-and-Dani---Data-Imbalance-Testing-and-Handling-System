@@ -35,5 +35,5 @@ def balance(req: BalanceRequest):
         raise HTTPException(status_code=400, detail=f"Column '{req.label_col}' not found.")
 
     run_id = str(uuid.uuid4())
-    start_pipeline(run_id, df, req.label_col, req.method, req.params, req.test_size)
+    start_pipeline(run_id, df, req.label_col, req.method, req.params, req.test_size, req.dataset_id)
     return {"run_id": run_id}

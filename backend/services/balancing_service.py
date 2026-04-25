@@ -1,22 +1,16 @@
 import threading
 import time
-import uuid
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List
 
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import (
-    accuracy_score, f1_score, precision_score, recall_score,
-    confusion_matrix, classification_report,
-)
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, OrdinalEncoder
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import NearMiss
 
-from config import RANDOM_STATE, DEFAULT_N_ESTIMATORS
+from config import RANDOM_STATE
 from models import state
 
 
@@ -31,6 +25,7 @@ def start_pipeline(
     method: str,
     params: Dict[str, Any],
     test_size: float,
+    dataset_id: str = "",
 ) -> None:
     state.store_run(run_id, {
         "status": "running",
@@ -40,6 +35,7 @@ def start_pipeline(
         "result": None,
         "error": None,
         "cancelled": False,
+        "dataset_id": dataset_id,
     })
     thread = threading.Thread(
         target=_pipeline,
@@ -74,40 +70,24 @@ def _pipeline(
 ) -> None:
     start = time.time()
     try:
-        _update(run_id, "Splitting data", 10, start)
-        X_train, X_test, y_train, y_test, le, col_names = _prepare(
-            df, label_col, test_size
-        )
+        _update(run_id, "Splitting data", 20, start)
+        X_train, y_train, le, col_names = _prepare(df, label_col, test_size)
 
-        _update(run_id, "Training baseline model", 25, start)
-        clf_base = RandomForestClassifier(
-            n_estimators=DEFAULT_N_ESTIMATORS, random_state=RANDOM_STATE
-        )
-        clf_base.fit(X_train, y_train)
-        y_pred_before = clf_base.predict(X_test)
-
-        _update(run_id, "Applying resampling", 50, start)
+        _update(run_id, "Applying resampling", 60, start)
         X_bal, y_bal = _resample(method, params, X_train, y_train)
 
-        _update(run_id, "Training balanced model", 70, start)
-        clf_bal = RandomForestClassifier(
-            n_estimators=DEFAULT_N_ESTIMATORS, random_state=RANDOM_STATE
-        )
-        clf_bal.fit(X_bal, y_bal)
-        y_pred_after = clf_bal.predict(X_test)
-
-        _update(run_id, "Computing metrics", 90, start)
-        metrics_before = _metrics(y_test, y_pred_before, le)
-        metrics_after = _metrics(y_test, y_pred_after, le)
+        _update(run_id, "Computing statistics", 90, start)
 
         ir_before = _ir(y_train)
-        ir_after = _ir(y_bal)
+        ir_after  = _ir(y_bal)
 
         def _dist(y_arr: np.ndarray) -> Dict[str, int]:
             counts = np.bincount(y_arr, minlength=len(le.classes_))
             return {str(le.classes_[i]): int(counts[i]) for i in range(len(le.classes_))}
 
-        # Build exportable balanced DataFrame
+        dist_before = _dist(y_train)
+        dist_after  = _dist(y_bal)
+
         balanced_df = pd.DataFrame(X_bal, columns=col_names)
         balanced_df[label_col] = le.inverse_transform(y_bal)
 
@@ -125,12 +105,10 @@ def _pipeline(
                 "test_size": test_size,
                 "ir_before": ir_before,
                 "ir_after": ir_after,
-                "metrics_before": metrics_before,
-                "metrics_after": metrics_after,
-                "confusion_matrix_before": confusion_matrix(y_test, y_pred_before).tolist(),
-                "confusion_matrix_after": confusion_matrix(y_test, y_pred_after).tolist(),
-                "class_distribution_before": _dist(y_train),
-                "class_distribution_after": _dist(y_bal),
+                "class_distribution_before": dist_before,
+                "class_distribution_after": dist_after,
+                "total_before": int(len(y_train)),
+                "total_after": int(len(y_bal)),
                 "elapsed_seconds": elapsed,
                 "class_names": [str(c) for c in le.classes_.tolist()],
                 "balanced_df": balanced_df,
@@ -157,7 +135,7 @@ def _prepare(
     df: pd.DataFrame,
     label_col: str,
     test_size: float,
-) -> Tuple:
+) -> Tuple[np.ndarray, np.ndarray, LabelEncoder, List[str]]:
     df_clean = df.dropna(subset=[label_col]).copy()
     feature_cols = [c for c in df_clean.columns if c != label_col]
 
@@ -190,9 +168,8 @@ def _prepare(
         )
 
     numeric_cols = X.select_dtypes(include=[np.number]).columns.tolist()
-    cat_cols = X.select_dtypes(exclude=[np.number]).columns.tolist()
-
-    col_names = numeric_cols + [f"enc_{c}" for c in cat_cols]
+    cat_cols     = X.select_dtypes(exclude=[np.number]).columns.tolist()
+    col_names    = numeric_cols + [f"enc_{c}" for c in cat_cols]
 
     parts = []
     if numeric_cols:
@@ -202,15 +179,13 @@ def _prepare(
         parts.append(enc.fit_transform(X[cat_cols].astype(str)))
 
     X_encoded = np.hstack(parts) if parts else np.empty((len(X), 0))
+    X_imputed = SimpleImputer(strategy="median").fit_transform(X_encoded)
 
-    imputer = SimpleImputer(strategy="median")
-    X_imputed = imputer.fit_transform(X_encoded)
-
-    X_train, X_test, y_train, y_test = train_test_split(
+    X_train, _X_test, y_train, _y_test = train_test_split(
         X_imputed, y, test_size=test_size, random_state=RANDOM_STATE, stratify=y
     )
 
-    # Post-split: a class could lose all its training samples with a large test_size.
+    # Post-split guard: a class could lose all training samples with a large test_size.
     post_counts = np.bincount(y_train, minlength=len(le.classes_))
     too_few_post = [
         f'"{le.classes_[i]}" ({int(post_counts[i])} sample)'
@@ -225,7 +200,7 @@ def _prepare(
             "Try reducing the test size (e.g. to 10%) or add more samples for these classes."
         )
 
-    return X_train, X_test, y_train, y_test, le, col_names
+    return X_train, y_train, le, col_names
 
 
 def _resample(
@@ -256,38 +231,6 @@ def _resample(
         return NearMiss(version=version, n_neighbors=n).fit_resample(X_s, y_s)
 
     raise ValueError(f"Unknown balancing method: {method!r}")
-
-
-def _metrics(y_true: np.ndarray, y_pred: np.ndarray, le: LabelEncoder) -> Dict[str, Any]:
-    class_names = le.classes_.tolist()
-    counts = np.bincount(y_true, minlength=len(class_names))
-    minority_idx = int(counts.argmin())
-
-    report = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
-
-    per_class = []
-    for i, name in enumerate(class_names):
-        key = str(i)
-        r = report.get(key, {"precision": 0.0, "recall": 0.0, "f1-score": 0.0, "support": 0})
-        per_class.append({
-            "class_name": str(name),
-            "precision": round(float(r["precision"]), 4),
-            "recall": round(float(r["recall"]), 4),
-            "f1": round(float(r["f1-score"]), 4),
-            "support": int(r["support"]),
-        })
-
-    m = report.get(str(minority_idx), {"precision": 0.0, "recall": 0.0, "f1-score": 0.0})
-    return {
-        "accuracy": round(float(accuracy_score(y_true, y_pred)), 4),
-        "macro_f1": round(float(f1_score(y_true, y_pred, average="macro", zero_division=0)), 4),
-        "macro_precision": round(float(precision_score(y_true, y_pred, average="macro", zero_division=0)), 4),
-        "macro_recall": round(float(recall_score(y_true, y_pred, average="macro", zero_division=0)), 4),
-        "minority_recall": round(float(m["recall"]), 4),
-        "minority_precision": round(float(m["precision"]), 4),
-        "minority_f1": round(float(m["f1-score"]), 4),
-        "per_class": per_class,
-    }
 
 
 def _ir(y: np.ndarray) -> float:

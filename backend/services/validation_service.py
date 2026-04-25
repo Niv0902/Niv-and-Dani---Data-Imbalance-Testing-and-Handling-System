@@ -90,12 +90,12 @@ def run_validation_checks(df: pd.DataFrame, label_col: str) -> List[Dict[str, An
             checks.append(_check("Feature columns: missing values", "pass",
                                  "No missing values in feature columns.", None))
 
-    # 4. Minimum 50 rows
+    # 4. Minimum 50 rows (blocking)
     if len(df) < 50:
         checks.append(_check(
-            "Dataset size: minimum 50 rows", "warning",
-            f"Dataset has only {len(df)} rows. Results may be unreliable with so few samples.",
-            "Consider using a larger dataset for meaningful results.",
+            "Dataset size: minimum 50 rows", "error",
+            f"Dataset has only {len(df)} rows. At least 50 rows are required to run the pipeline.",
+            "Upload a larger dataset with at least 50 samples.",
         ))
     else:
         checks.append(_check("Dataset size: minimum 50 rows", "pass",

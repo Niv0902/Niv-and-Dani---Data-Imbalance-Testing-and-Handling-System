@@ -31,8 +31,6 @@ function ExportCard({ icon, title, desc, url, filename }) {
 export default function ExportPage() {
   const navigate = useNavigate();
   const { currentRunId, runs, reset } = useApp();
-  const [showPreview, setShowPreview] = useState(false);
-
   const run = runs.find((r) => r.run_id === currentRunId) || runs[runs.length - 1];
 
   if (!run) {
@@ -45,16 +43,6 @@ export default function ExportPage() {
   }
 
   const runId = run.run_id;
-  const summaryPreview = {
-    run_id: runId,
-    method: run.method,
-    params: run.params,
-    test_size: run.test_size,
-    ir_before: run.ir_before,
-    ir_after: run.ir_after,
-    metrics_before: run.metrics_before,
-    metrics_after: run.metrics_after,
-  };
 
   return (
     <div className="page-container">
@@ -73,9 +61,9 @@ export default function ExportPage() {
         <ExportCard
           icon="📄"
           title="Run Summary"
-          desc="A JSON file with all configuration, metrics before and after, class distributions, and timestamps."
+          desc="A PDF report with project info, method, parameters, IR before/after, class distributions with counts, and timestamp."
           url={exportSummaryUrl(runId)}
-          filename={`run_summary_${runId.slice(0, 8)}.json`}
+          filename={`run_summary_${runId.slice(0, 8)}.pdf`}
         />
       </div>
 
@@ -93,18 +81,6 @@ export default function ExportPage() {
             Download ZIP
           </a>
         </div>
-      </div>
-
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="collapsible-header" onClick={() => setShowPreview((o) => !o)}>
-          <span>Preview run summary (JSON)</span>
-          <span>{showPreview ? "▲" : "▼"}</span>
-        </div>
-        {showPreview && (
-          <div className="collapsible-content">
-            <pre className="json-preview">{JSON.stringify(summaryPreview, null, 2)}</pre>
-          </div>
-        )}
       </div>
 
       <div className="nav-row">

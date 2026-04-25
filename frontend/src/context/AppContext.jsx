@@ -3,13 +3,25 @@ import { createContext, useContext, useState } from "react";
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  const [datasetId, setDatasetId] = useState(null);
+  const [datasetId, setDatasetIdRaw] = useState(null);
   const [datasetMeta, setDatasetMeta] = useState(null); // {filename, rows, columns}
   const [labelCol, setLabelCol] = useState(null);
   const [validationResult, setValidationResult] = useState(null);
   const [diagnosisResult, setDiagnosisResult] = useState(null);
   const [currentRunId, setCurrentRunId] = useState(null);
   const [runs, setRuns] = useState([]); // [{run_id, method, result, ...}]
+
+  function setDatasetId(newId) {
+    // Clear run history whenever a different dataset is loaded
+    if (newId !== datasetId) {
+      setRuns([]);
+      setCurrentRunId(null);
+      setLabelCol(null);
+      setValidationResult(null);
+      setDiagnosisResult(null);
+    }
+    setDatasetIdRaw(newId);
+  }
 
   function addRun(run) {
     setRuns((prev) => [...prev, run]);

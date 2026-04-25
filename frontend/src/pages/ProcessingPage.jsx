@@ -6,10 +6,9 @@ import StepIndicator from "../components/StepIndicator";
 
 const STAGES = [
   "Splitting data",
-  "Training baseline model",
   "Applying resampling",
-  "Training balanced model",
-  "Computing metrics",
+  "Computing statistics",
+  "Finishing up...",
   "Done",
 ];
 
@@ -21,15 +20,15 @@ function stageState(currentStage, label) {
   return "pending";
 }
 
-function stageIcon(state) {
-  if (state === "done") return "✓";
-  if (state === "active") return <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />;
+function stageIcon(s) {
+  if (s === "done")   return "✓";
+  if (s === "active") return <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />;
   return "○";
 }
 
 export default function ProcessingPage() {
   const navigate = useNavigate();
-  const { currentRunId, addRun, setCurrentRunId } = useApp();
+  const { currentRunId, addRun } = useApp();
   const [status, setStatus] = useState({ status: "running", stage: "Queued", progress_pct: 0, elapsed_sec: 0 });
   const [longRunning, setLongRunning] = useState(false);
   const intervalRef = useRef(null);
@@ -45,6 +44,8 @@ export default function ProcessingPage() {
 
         if (r.data.status === "completed") {
           clearInterval(intervalRef.current);
+          // Show "Finishing up..." with spinner while loading results
+          setStatus(prev => ({ ...prev, stage: "Finishing up..." }));
           const res = await getResults(currentRunId);
           addRun({ run_id: currentRunId, ...res.data });
           navigate("/results");
@@ -67,7 +68,7 @@ export default function ProcessingPage() {
     navigate("/configure");
   }
 
-  const isError = status.status === "error";
+  const isError     = status.status === "error";
   const isCancelled = status.status === "cancelled";
 
   return (

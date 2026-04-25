@@ -99,7 +99,7 @@ export default function ColumnSelectionPage() {
         )}
       </div>
 
-      {summary && (
+      {summary && summary.unique_count <= 10 && (
         <div className="card" style={{ marginTop: 16 }}>
           <div className="section-label">Class distribution preview</div>
           <div style={{ display: "flex", gap: 24, marginBottom: 16 }}>
