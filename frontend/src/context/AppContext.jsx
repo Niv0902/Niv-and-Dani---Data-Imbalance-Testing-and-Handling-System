@@ -9,16 +9,16 @@ export function AppProvider({ children }) {
   const [validationResult, setValidationResult] = useState(null);
   const [diagnosisResult, setDiagnosisResult] = useState(null);
   const [currentRunId, setCurrentRunId] = useState(null);
-  const [runs, setRuns] = useState([]); // [{run_id, method, result, ...}]
+  const [runs, setRuns] = useState([]);
 
   function setDatasetId(newId) {
-    // Clear run history whenever a different dataset is loaded
     if (newId !== datasetId) {
       setRuns([]);
       setCurrentRunId(null);
       setLabelCol(null);
       setValidationResult(null);
       setDiagnosisResult(null);
+      setDatasetMeta(null);
     }
     setDatasetIdRaw(newId);
   }

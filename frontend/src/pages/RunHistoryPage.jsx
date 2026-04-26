@@ -6,7 +6,9 @@ import {
 import StepIndicator from "../components/StepIndicator";
 import { useApp } from "../context/AppContext";
 
-const COLORS = ["#2563eb", "#7c3aed", "#db2777", "#059669"];
+function reductionPct(irBefore, irAfter) {
+  return irBefore > 0 ? `↓ ${((1 - irAfter / irBefore) * 100).toFixed(1)}%` : "—";
+}
 
 export default function RunHistoryPage() {
   const navigate = useNavigate();
@@ -37,11 +39,11 @@ export default function RunHistoryPage() {
     });
   }
 
+  const runIndexMap = new Map(runs.map((r, i) => [r.run_id, i + 1]));
   const selectedRuns = runs.filter((r) => selected.includes(r.run_id));
 
-  // Grouped bar chart: IR Before + IR After per selected run
-  const chartData = selectedRuns.map((r, i) => ({
-    name: `Run ${runs.indexOf(r) + 1}: ${r.method.toUpperCase()}`,
+  const chartData = selectedRuns.map((r) => ({
+    name: `Run ${runIndexMap.get(r.run_id)}: ${r.method.toUpperCase()}`,
     "IR Before": r.ir_before,
     "IR After":  r.ir_after,
   }));
@@ -96,10 +98,8 @@ export default function RunHistoryPage() {
               </tr>
             </thead>
             <tbody>
-              {displayRuns.map((run, i) => {
-                const reduction = run.ir_before > 0
-                  ? `↓ ${((1 - run.ir_after / run.ir_before) * 100).toFixed(1)}%`
-                  : "—";
+              {displayRuns.map((run) => {
+                const reduction = reductionPct(run.ir_before, run.ir_after);
                 return (
                   <tr key={run.run_id} style={run.run_id === currentRunId ? { background: "var(--blue-light)" } : {}}>
                     {runs.length > 1 && (
@@ -112,7 +112,7 @@ export default function RunHistoryPage() {
                         />
                       </td>
                     )}
-                    <td>{runs.indexOf(run) + 1}</td>
+                    <td>{runIndexMap.get(run.run_id)}</td>
                     <td><strong>{run.method.toUpperCase()}</strong></td>
                     <td>{run.ir_before}</td>
                     <td style={{ color: run.ir_after < run.ir_before ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
@@ -163,12 +163,10 @@ export default function RunHistoryPage() {
               </thead>
               <tbody>
                 {selectedRuns.map((r) => {
-                  const reduction = r.ir_before > 0
-                    ? `↓ ${((1 - r.ir_after / r.ir_before) * 100).toFixed(1)}%`
-                    : "—";
+                  const reduction = reductionPct(r.ir_before, r.ir_after);
                   return (
                     <tr key={r.run_id}>
-                      <td>Run {runs.indexOf(r) + 1}</td>
+                      <td>Run {runIndexMap.get(r.run_id)}</td>
                       <td>{r.method.toUpperCase()}</td>
                       <td>{r.ir_before}</td>
                       <td style={{ color: r.ir_after < r.ir_before ? "var(--green)" : "var(--red)", fontWeight: 600 }}>

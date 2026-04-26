@@ -39,12 +39,15 @@ export default function ProcessingPage() {
     const poll = async () => {
       try {
         const r = await getStatus(currentRunId);
-        setStatus(r.data);
+        setStatus(prev =>
+          prev.status === r.data.status && prev.stage === r.data.stage && prev.progress_pct === r.data.progress_pct
+            ? prev
+            : r.data
+        );
         if (r.data.elapsed_sec > 60) setLongRunning(true);
 
         if (r.data.status === "completed") {
           clearInterval(intervalRef.current);
-          // Show "Finishing up..." with spinner while loading results
           setStatus(prev => ({ ...prev, stage: "Finishing up..." }));
           const res = await getResults(currentRunId);
           addRun({ run_id: currentRunId, ...res.data });
