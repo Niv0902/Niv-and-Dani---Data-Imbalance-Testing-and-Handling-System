@@ -48,13 +48,13 @@ export default function ExportPage() {
     <div className="page-container">
       <StepIndicator current={8} />
       <h1 className="page-title">Export results</h1>
-      <p className="page-subtitle">Download the balanced training dataset and run summary.</p>
+      <p className="page-subtitle">Download the balanced dataset and run summary.</p>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <ExportCard
           icon="📊"
           title="Balanced Dataset"
-          desc="The resampled training set as a CSV file. Contains only the training portion — the test set is kept untouched."
+          desc="The balanced portion as a CSV file. Contains only the balanced rows — the held-out portion is kept untouched."
           url={exportDatasetUrl(runId)}
           filename={`balanced_dataset_${runId.slice(0, 8)}.csv`}
         />

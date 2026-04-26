@@ -56,7 +56,7 @@ def run_validation_checks(df: pd.DataFrame, label_col: str) -> List[Dict[str, An
         else:
             msg = (
                 f"{len(singletons)} class(es) have only 1 sample ({sample_names}). "
-                "Each class needs at least 2 samples for train/test splitting."
+                "Each class needs at least 2 samples for splitting into balanced and held-out portions."
             )
         checks.append(_check(
             "Label column: at least 2 samples per class", "error", msg,

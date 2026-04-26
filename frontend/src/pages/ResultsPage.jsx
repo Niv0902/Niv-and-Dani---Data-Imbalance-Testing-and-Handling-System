@@ -70,7 +70,7 @@ function ClassCountTable({ distBefore, distAfter, classNames }) {
           );
         })}
         <tr style={{ fontWeight: 700, borderTop: "2px solid var(--gray-200)" }}>
-          <td>Total (training set)</td>
+          <td>Total (balanced portion)</td>
           <td>{totalB.toLocaleString()}</td>
           <td>{totalA.toLocaleString()}</td>
           <td className={totalD > 0 ? "positive" : totalD < 0 ? "negative" : ""}>
@@ -136,7 +136,7 @@ export default function ResultsPage() {
           </div>
           <div className="ir-arrow">→</div>
           <div>
-            <div className="compare-label after">After (training set)</div>
+            <div className="compare-label after">After (balanced portion)</div>
             <div style={{ fontSize: 32, fontWeight: 700, color: irImproved ? "var(--green)" : "var(--red)" }}>
               {ir_after}
             </div>
@@ -156,7 +156,7 @@ export default function ResultsPage() {
 
       {/* Side-by-side distribution bar charts */}
       <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-label">Class distribution (training set)</div>
+        <div className="section-label">Class distribution (balanced portion)</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
           <SingleDistChart
             dist={class_distribution_before}

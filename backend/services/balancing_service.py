@@ -24,7 +24,7 @@ def start_pipeline(
     label_col: str,
     method: str,
     params: Dict[str, Any],
-    test_size: float,
+    held_out_size: float,
     dataset_id: str = "",
 ) -> None:
     state.store_run(run_id, {
@@ -39,7 +39,7 @@ def start_pipeline(
     })
     thread = threading.Thread(
         target=_pipeline,
-        args=(run_id, df, label_col, method, params, test_size),
+        args=(run_id, df, label_col, method, params, held_out_size),
         daemon=True,
     )
     thread.start()
@@ -66,12 +66,12 @@ def _pipeline(
     label_col: str,
     method: str,
     params: Dict[str, Any],
-    test_size: float,
+    held_out_size: float,
 ) -> None:
     start = time.time()
     try:
         _update(run_id, "Splitting data", 20, start)
-        X_train, y_train, le, col_names = _prepare(df, label_col, test_size)
+        X_train, y_train, le, col_names, enc, cat_cols, numeric_cols = _prepare(df, label_col, held_out_size)
 
         _update(run_id, "Applying resampling", 60, start)
         X_bal, y_bal = _resample(method, params, X_train, y_train)
@@ -91,6 +91,18 @@ def _pipeline(
         balanced_df = pd.DataFrame(X_bal, columns=col_names)
         balanced_df[label_col] = le.inverse_transform(y_bal)
 
+        if enc is not None:
+            n_num = len(numeric_cols)
+            cat_part = X_bal[:, n_num:]
+            cat_int = np.empty(cat_part.shape, dtype=int)
+            for i, cats in enumerate(enc.categories_):
+                cat_int[:, i] = np.clip(np.round(cat_part[:, i]).astype(int), 0, len(cats) - 1)
+            decoded = enc.inverse_transform(cat_int)
+            for i, col in enumerate(cat_cols):
+                balanced_df[col] = decoded[:, i]
+                balanced_df.drop(columns=[f"enc_{col}"], inplace=True)
+            balanced_df = balanced_df[numeric_cols + cat_cols + [label_col]]
+
         elapsed = round(time.time() - start, 2)
 
         state.update_run(run_id, {
@@ -102,7 +114,7 @@ def _pipeline(
                 "run_id": run_id,
                 "method": method,
                 "params": params,
-                "test_size": test_size,
+                "held_out_size": held_out_size,
                 "ir_before": ir_before,
                 "ir_after": ir_after,
                 "class_distribution_before": dist_before,
@@ -134,7 +146,7 @@ def _pipeline(
 def _prepare(
     df: pd.DataFrame,
     label_col: str,
-    test_size: float,
+    held_out_size: float,
 ) -> Tuple[np.ndarray, np.ndarray, LabelEncoder, List[str]]:
     df_clean = df.dropna(subset=[label_col]).copy()
     feature_cols = [c for c in df_clean.columns if c != label_col]
@@ -171,6 +183,7 @@ def _prepare(
     cat_cols     = X.select_dtypes(exclude=[np.number]).columns.tolist()
     col_names    = numeric_cols + [f"enc_{c}" for c in cat_cols]
 
+    enc = None
     parts = []
     if numeric_cols:
         parts.append(X[numeric_cols].values.astype(float))
@@ -181,11 +194,11 @@ def _prepare(
     X_encoded = np.hstack(parts) if parts else np.empty((len(X), 0))
     X_imputed = SimpleImputer(strategy="median").fit_transform(X_encoded)
 
-    X_train, _X_test, y_train, _y_test = train_test_split(
-        X_imputed, y, test_size=test_size, random_state=RANDOM_STATE, stratify=y
+    X_train, _X_heldout, y_train, _y_heldout = train_test_split(
+        X_imputed, y, test_size=held_out_size, random_state=RANDOM_STATE, stratify=y
     )
 
-    # Post-split guard: a class could lose all training samples with a large test_size.
+    # Post-split guard: a class could lose all samples in the balanced portion with a large held-out size.
     post_counts = np.bincount(y_train, minlength=len(le.classes_))
     too_few_post = [
         f'"{le.classes_[i]}" ({int(post_counts[i])} sample)'
@@ -194,13 +207,13 @@ def _prepare(
     ]
     if too_few_post:
         raise ValueError(
-            f"After the train/test split, the following class(es) have fewer than 2 training "
-            f"samples: {', '.join(too_few_post)}. "
-            f"The current test size is {int(test_size * 100)}%. "
-            "Try reducing the test size (e.g. to 10%) or add more samples for these classes."
+            f"After splitting, the following class(es) have fewer than 2 rows in the balanced portion: "
+            f"{', '.join(too_few_post)}. "
+            f"The current held-out size is {int(held_out_size * 100)}%. "
+            "Try reducing the held-out portion (e.g. to 10%) or add more samples for these classes."
         )
 
-    return X_train, y_train, le, col_names
+    return X_train, y_train, le, col_names, enc, cat_cols, numeric_cols
 
 
 def _resample(

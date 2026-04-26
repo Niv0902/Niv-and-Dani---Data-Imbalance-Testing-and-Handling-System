@@ -42,7 +42,7 @@ export default function BalancingConfigPage() {
   const { datasetId, labelCol, setCurrentRunId, runs } = useApp();
   const [method, setMethod] = useState("smote");
   const [params, setParams] = useState({ k_neighbors: 5, version: 1, n_neighbors: 3, nearmiss_version: 1 });
-  const [testSize, setTestSize] = useState(0.2);
+  const [heldOutSize, setHeldOutSize] = useState(0.2);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [expanded, setExpanded] = useState(false);
@@ -54,7 +54,7 @@ export default function BalancingConfigPage() {
   function handleRun() {
     setError(null);
     setLoading(true);
-    startBalancing(datasetId, labelCol, method, params, testSize)
+    startBalancing(datasetId, labelCol, method, params, heldOutSize)
       .then((r) => {
         setCurrentRunId(r.data.run_id);
         navigate("/processing");
@@ -155,19 +155,23 @@ export default function BalancingConfigPage() {
 
         <div className="param-row" style={{ marginTop: 8 }}>
           <label className="param-label">
-            Test set size: <strong>{Math.round(testSize * 100)}%</strong>
+            Held-out portion: <strong>{Math.round(heldOutSize * 100)}%</strong>
             &nbsp;<span style={{ fontWeight: 400, color: "var(--gray-400)", fontSize: 12 }}>
-              (train: {Math.round((1 - testSize) * 100)}%)
+              (balanced: {Math.round((1 - heldOutSize) * 100)}%)
             </span>
           </label>
           <input
             type="range"
             min={5} max={40} step={5}
-            value={testSize * 100}
-            onChange={(e) => setTestSize(parseInt(e.target.value) / 100)}
+            value={heldOutSize * 100}
+            onChange={(e) => setHeldOutSize(parseInt(e.target.value) / 100)}
             style={{ width: "100%", accentColor: "var(--blue)" }}
           />
-          <span className="param-hint">Balancing is applied ONLY to the training split — no data leakage.</span>
+          <span className="param-hint">
+            Balancing is applied only to the <strong>balanced portion</strong>.
+            The <strong>held-out portion</strong> is kept completely untouched —
+            set it aside to fairly evaluate any machine learning model you train later on this dataset.
+          </span>
         </div>
 
         <button className="btn-link" style={{ fontSize: 13, marginTop: 4 }}

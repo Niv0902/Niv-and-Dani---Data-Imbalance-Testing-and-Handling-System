@@ -214,24 +214,24 @@ def test_reproducibility(arrays, method, params):
 
 
 # ---------------------------------------------------------------------------
-# _prepare / test-set isolation
+# _prepare / held-out isolation
 # ---------------------------------------------------------------------------
 
 def test_prepare_train_size(df):
     total = len(df)
-    X_train, y_train, le, col_names = _prepare(df, "label", 0.2)
+    X_train, y_train, *_ = _prepare(df, "label", 0.2)
     expected_train = total - round(total * 0.2)
     assert abs(len(y_train) - expected_train) <= 2
 
 
 def test_prepare_label_encoder(df):
-    _, y_train, le, _ = _prepare(df, "label", 0.2)
+    _, y_train, le, *_ = _prepare(df, "label", 0.2)
     assert set(le.classes_) == {"majority", "minority"}
     assert set(np.unique(y_train)).issubset({0, 1})
 
 
 def test_prepare_col_names(df):
-    _, _, _, col_names = _prepare(df, "label", 0.2)
+    _, _, _, col_names, *_ = _prepare(df, "label", 0.2)
     assert len(col_names) == 4  # f1-f4; label is excluded
 
 
@@ -242,8 +242,8 @@ def test_prepare_does_not_modify_df(df):
 
 
 def test_prepare_test_set_not_exposed(df):
-    """_prepare discards the test split — balancing operates only on training data."""
-    X_train, y_train, le, _ = _prepare(df, "label", 0.2)
+    """_prepare discards the held-out split — balancing operates only on the balanced portion."""
+    X_train, y_train, *_ = _prepare(df, "label", 0.2)
     X_bal, y_bal = _resample("smote", {"k_neighbors": 5}, X_train, y_train)
     # Original training rows are preserved at the front (SMOTE only appends)
     assert np.allclose(X_bal[: len(X_train)], X_train)
