@@ -234,7 +234,7 @@ def test_smote_categorical_roundtrip(cat_df):
     After SMOTE, the decoded categorical column must contain only valid original
     category labels — never a raw integer or an out-of-vocabulary value.
     """
-    X_train, y_train, le, col_names, enc, cat_cols, numeric_cols = _prepare(cat_df, "label", 0.2)
+    X_train, y_train, le, col_names, enc, cat_cols, numeric_cols, *_ = _prepare(cat_df, "label", 0.2)
     assert enc is not None, "Expected an OrdinalEncoder for the categorical column"
 
     X_bal, y_bal = _resample("smote", {"k_neighbors": 3}, X_train, y_train)
@@ -494,14 +494,14 @@ def test_prepare_does_not_modify_df(df):
 
 def test_prepare_returns_encoder_for_categoricals(cat_df):
     """_prepare must return a fitted OrdinalEncoder when the df has categorical columns."""
-    _, _, _, _, enc, cat_cols, _ = _prepare(cat_df, "label", 0.2)
+    _, _, _, _, enc, cat_cols, *_ = _prepare(cat_df, "label", 0.2)
     assert enc is not None
     assert "workclass" in cat_cols
 
 
 def test_prepare_no_encoder_for_numeric_only(df):
     """_prepare must return enc=None when all feature columns are numeric."""
-    _, _, _, _, enc, cat_cols, _ = _prepare(df, "label", 0.2)
+    _, _, _, _, enc, cat_cols, *_ = _prepare(df, "label", 0.2)
     assert enc is None
     assert cat_cols == []
 
