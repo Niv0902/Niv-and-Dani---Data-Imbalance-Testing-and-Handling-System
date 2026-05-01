@@ -9,7 +9,7 @@ const COLORS = ["#2563eb", "#7c3aed", "#db2777", "#059669", "#d97706", "#dc2626"
 
 export default function ColumnSelectionPage() {
   const navigate = useNavigate();
-  const { datasetId, datasetMeta, labelCol, setLabelCol } = useApp();
+  const { datasetId, datasetMeta, labelCol, setLabelCol, setDiagnosisResult } = useApp();
   const [columns, setColumns] = useState([]);
   const [preview, setPreview] = useState(null);
   const [summary, setSummary] = useState(null);
@@ -29,6 +29,7 @@ export default function ColumnSelectionPage() {
 
   function handleColChange(col) {
     setLabelCol(col);
+    setDiagnosisResult(null);
     setSummary(null);
     getColumnSummary(datasetId, col)
       .then((r) => setSummary(r.data))
