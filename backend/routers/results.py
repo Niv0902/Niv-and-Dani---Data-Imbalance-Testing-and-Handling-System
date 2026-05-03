@@ -14,4 +14,4 @@ def get_results(run_id: str):
 
     result = run["result"]
     # Exclude non-serialisable fields stored for export use
-    return {k: v for k, v in result.items() if k not in ("balanced_df", "le")}
+    return {k: v for k, v in result.items() if k not in ("balanced_df", "log_df")}

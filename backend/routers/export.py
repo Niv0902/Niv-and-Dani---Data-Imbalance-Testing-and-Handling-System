@@ -240,6 +240,25 @@ def export_summary(run_id: str):
     )
 
 
+@router.get("/export/log/{run_id}")
+def export_log(run_id: str):
+    run    = _get_completed_run(run_id)
+    log_df = run["result"].get("log_df")
+    if log_df is None:
+        raise HTTPException(status_code=404, detail="No change log available for this run.")
+
+    buf = io.StringIO()
+    log_df.to_csv(buf, index=False)
+    buf.seek(0)
+
+    filename = f"changes_log_{run_id[:8]}.csv"
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("/export/all/{run_id}")
 def export_all(run_id: str):
     run    = _get_completed_run(run_id)
@@ -255,6 +274,11 @@ def export_all(run_id: str):
     with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(f"balanced_dataset_{run_id[:8]}.csv", csv_bytes)
         zf.writestr(f"run_summary_{run_id[:8]}.pdf", pdf_bytes)
+        log_df = result.get("log_df")
+        if log_df is not None:
+            log_buf = io.StringIO()
+            log_df.to_csv(log_buf, index=False)
+            zf.writestr(f"changes_log_{run_id[:8]}.csv", log_buf.getvalue().encode())
     zip_buf.seek(0)
 
     filename = f"imbalancekit_export_{run_id[:8]}.zip"

@@ -61,5 +61,7 @@ export const exportDatasetUrl = (runId) =>
   `http://localhost:8001/api/export/dataset/${runId}`;
 export const exportSummaryUrl = (runId) =>
   `http://localhost:8001/api/export/summary/${runId}`;
+export const exportLogUrl = (runId) =>
+  `http://localhost:8001/api/export/log/${runId}`;
 export const exportAllUrl = (runId) =>
   `http://localhost:8001/api/export/all/${runId}`;

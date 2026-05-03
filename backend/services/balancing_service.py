@@ -74,7 +74,7 @@ def _pipeline(
         X_train, y_train, le, col_names, enc, cat_cols, numeric_cols = _prepare(df, label_col, held_out_size)
 
         _update(run_id, "Applying resampling", 60, start)
-        X_bal, y_bal = _resample(method, params, X_train, y_train)
+        X_bal, y_bal, log_info = _resample(method, params, X_train, y_train)
 
         _update(run_id, "Computing statistics", 90, start)
 
@@ -88,20 +88,22 @@ def _pipeline(
         dist_before = _dist(y_train)
         dist_after  = _dist(y_bal)
 
-        balanced_df = pd.DataFrame(X_bal, columns=col_names)
-        balanced_df[label_col] = le.inverse_transform(y_bal)
+        balanced_df = _decode_df(X_bal, y_bal, col_names, le, label_col, enc, cat_cols, numeric_cols)
 
-        if enc is not None:
-            n_num = len(numeric_cols)
-            cat_part = X_bal[:, n_num:]
-            cat_int = np.empty(cat_part.shape, dtype=int)
-            for i, cats in enumerate(enc.categories_):
-                cat_int[:, i] = np.clip(np.round(cat_part[:, i]).astype(int), 0, len(cats) - 1)
-            decoded = enc.inverse_transform(cat_int)
-            for i, col in enumerate(cat_cols):
-                balanced_df[col] = decoded[:, i]
-                balanced_df.drop(columns=[f"enc_{col}"], inplace=True)
-            balanced_df = balanced_df[numeric_cols + cat_cols + [label_col]]
+        log_parts = []
+        if log_info.get("added") is not None:
+            X_add, y_add = log_info["added"]
+            if len(X_add) > 0:
+                df_add = _decode_df(X_add, y_add, col_names, le, label_col, enc, cat_cols, numeric_cols)
+                df_add.insert(0, "change_type", "added")
+                log_parts.append(df_add)
+        if log_info.get("deleted") is not None:
+            X_del, y_del = log_info["deleted"]
+            if len(X_del) > 0:
+                df_del = _decode_df(X_del, y_del, col_names, le, label_col, enc, cat_cols, numeric_cols)
+                df_del.insert(0, "change_type", "deleted")
+                log_parts.append(df_del)
+        log_df = pd.concat(log_parts, ignore_index=True) if log_parts else None
 
         elapsed = round(time.time() - start, 2)
 
@@ -124,6 +126,7 @@ def _pipeline(
                 "elapsed_seconds": elapsed,
                 "class_names": [str(c) for c in le.classes_.tolist()],
                 "balanced_df": balanced_df,
+                "log_df": log_df,
                 "label_col": label_col,
             },
         })
@@ -216,21 +219,49 @@ def _prepare(
     return X_train, y_train, le, col_names, enc, cat_cols, numeric_cols
 
 
+def _decode_df(
+    X: np.ndarray, y: np.ndarray,
+    col_names: List[str], le: LabelEncoder, label_col: str,
+    enc, cat_cols: List[str], numeric_cols: List[str],
+) -> pd.DataFrame:
+    df = pd.DataFrame(X, columns=col_names)
+    df[label_col] = le.inverse_transform(y)
+    if enc is not None:
+        n_num = len(numeric_cols)
+        cat_part = X[:, n_num:]
+        cat_int = np.empty(cat_part.shape, dtype=int)
+        for i, cats in enumerate(enc.categories_):
+            cat_int[:, i] = np.clip(np.round(cat_part[:, i]).astype(int), 0, len(cats) - 1)
+        decoded = enc.inverse_transform(cat_int)
+        for i, col in enumerate(cat_cols):
+            df[col] = decoded[:, i]
+            df.drop(columns=[f"enc_{col}"], inplace=True)
+        df = df[numeric_cols + cat_cols + [label_col]]
+    return df
+
+
 def _resample(
     method: str, params: Dict[str, Any], X_train: np.ndarray, y_train: np.ndarray
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, dict]:
     if method == "smote":
         k = int(params.get("k_neighbors", 5))
         minority_count = int(np.bincount(y_train).min())
         k = min(k, minority_count - 1)
         if k < 1:
             k = 1
-        return SMOTE(k_neighbors=k, random_state=RANDOM_STATE).fit_resample(X_train, y_train)
+        smote = SMOTE(k_neighbors=k, random_state=RANDOM_STATE)
+        X_bal, y_bal = smote.fit_resample(X_train, y_train)
+        n = len(X_train)
+        return X_bal, y_bal, {"added": (X_bal[n:], y_bal[n:]), "deleted": None}
 
     elif method == "nearmiss":
         version = int(params.get("version", 1))
         n = int(params.get("n_neighbors", 3))
-        return NearMiss(version=version, n_neighbors=n).fit_resample(X_train, y_train)
+        nm = NearMiss(version=version, n_neighbors=n)
+        X_bal, y_bal = nm.fit_resample(X_train, y_train)
+        kept = set(nm.sample_indices_)
+        deleted_mask = np.array([i not in kept for i in range(len(X_train))])
+        return X_bal, y_bal, {"added": None, "deleted": (X_train[deleted_mask], y_train[deleted_mask])}
 
     elif method == "combined":
         k = int(params.get("k_neighbors", 5))
@@ -240,8 +271,15 @@ def _resample(
             k = 1
         version = int(params.get("nearmiss_version", 1))
         n = int(params.get("n_neighbors", 3))
-        X_s, y_s = SMOTE(k_neighbors=k, random_state=RANDOM_STATE).fit_resample(X_train, y_train)
-        return NearMiss(version=version, n_neighbors=n).fit_resample(X_s, y_s)
+        smote = SMOTE(k_neighbors=k, random_state=RANDOM_STATE)
+        X_s, y_s = smote.fit_resample(X_train, y_train)
+        n_orig = len(X_train)
+        added_X, added_y = X_s[n_orig:], y_s[n_orig:]
+        nm = NearMiss(version=version, n_neighbors=n)
+        X_bal, y_bal = nm.fit_resample(X_s, y_s)
+        kept = set(nm.sample_indices_)
+        deleted_mask = np.array([i not in kept for i in range(len(X_s))])
+        return X_bal, y_bal, {"added": (added_X, added_y), "deleted": (X_s[deleted_mask], y_s[deleted_mask])}
 
     raise ValueError(f"Unknown balancing method: {method!r}")
 
