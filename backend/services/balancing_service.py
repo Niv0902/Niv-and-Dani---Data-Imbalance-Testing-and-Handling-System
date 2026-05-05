@@ -71,21 +71,21 @@ def _pipeline(
     start = time.time()
     try:
         _update(run_id, "Splitting data", 20, start)
-        X_train, y_train, le, col_names, enc, cat_cols, numeric_cols = _prepare(df, label_col, held_out_size)
+        X_train, y_train, le, col_names, enc, cat_cols, numeric_cols, y_full = _prepare(df, label_col, held_out_size)
 
         _update(run_id, "Applying resampling", 60, start)
         X_bal, y_bal, log_info = _resample(method, params, X_train, y_train)
 
         _update(run_id, "Computing statistics", 90, start)
 
-        ir_before = _ir(y_train)
+        ir_before = _ir(y_full)
         ir_after  = _ir(y_bal)
 
         def _dist(y_arr: np.ndarray) -> Dict[str, int]:
             counts = np.bincount(y_arr, minlength=len(le.classes_))
             return {str(le.classes_[i]): int(counts[i]) for i in range(len(le.classes_))}
 
-        dist_before = _dist(y_train)
+        dist_before = _dist(y_full)
         dist_after  = _dist(y_bal)
 
         balanced_df = _decode_df(X_bal, y_bal, col_names, le, label_col, enc, cat_cols, numeric_cols)
@@ -121,7 +121,7 @@ def _pipeline(
                 "ir_after": ir_after,
                 "class_distribution_before": dist_before,
                 "class_distribution_after": dist_after,
-                "total_before": int(len(y_train)),
+                "total_before": int(len(y_full)),
                 "total_after": int(len(y_bal)),
                 "elapsed_seconds": elapsed,
                 "class_names": [str(c) for c in le.classes_.tolist()],
@@ -216,7 +216,7 @@ def _prepare(
             "Try reducing the held-out portion (e.g. to 10%) or add more samples for these classes."
         )
 
-    return X_train, y_train, le, col_names, enc, cat_cols, numeric_cols
+    return X_train, y_train, le, col_names, enc, cat_cols, numeric_cols, y
 
 
 def _decode_df(

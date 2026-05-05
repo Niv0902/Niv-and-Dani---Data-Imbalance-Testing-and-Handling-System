@@ -56,7 +56,7 @@ export default function ExportPage() {
       <h1 className="page-title">Export results</h1>
       <p className="page-subtitle">Download the balanced dataset and run summary.</p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: logCardProps ? "1fr 1fr 1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <ExportCard
           icon="📊"
           title="Balanced Dataset"

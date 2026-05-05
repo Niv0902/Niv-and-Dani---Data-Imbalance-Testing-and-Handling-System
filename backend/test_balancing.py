@@ -132,27 +132,27 @@ def test_ir_multiclass():
 
 def test_smote_minority_increases(arrays):
     X, y = arrays
-    _, y_bal = _resample("smote", {"k_neighbors": 5}, X, y)
+    _, y_bal, _ = _resample("smote", {"k_neighbors": 5}, X, y)
     assert np.sum(y_bal == 1) > np.sum(y == 1)
 
 
 def test_smote_minority_matches_majority(arrays):
     """SMOTE oversamples minority until it equals the majority count."""
     X, y = arrays
-    _, y_bal = _resample("smote", {"k_neighbors": 5}, X, y)
+    _, y_bal, _ = _resample("smote", {"k_neighbors": 5}, X, y)
     assert np.sum(y_bal == 1) == np.sum(y_bal == 0)
 
 
 def test_smote_majority_count_unchanged(arrays):
     X, y = arrays
-    _, y_bal = _resample("smote", {"k_neighbors": 5}, X, y)
+    _, y_bal, _ = _resample("smote", {"k_neighbors": 5}, X, y)
     assert np.sum(y_bal == 0) == np.sum(y == 0)
 
 
 def test_smote_majority_rows_in_same_order(arrays):
     """Every original majority row is still present and in the same order."""
     X, y = arrays
-    X_bal, y_bal = _resample("smote", {"k_neighbors": 5}, X, y)
+    X_bal, y_bal, _ = _resample("smote", {"k_neighbors": 5}, X, y)
     X_orig_maj = X[y == 0]
     # imbalanced-learn places originals first; the first n_majority rows must be the majority
     assert np.allclose(X_bal[:len(X_orig_maj)], X_orig_maj)
@@ -161,20 +161,20 @@ def test_smote_majority_rows_in_same_order(arrays):
 
 def test_smote_total_increases(arrays):
     X, y = arrays
-    _, y_bal = _resample("smote", {"k_neighbors": 5}, X, y)
+    _, y_bal, _ = _resample("smote", {"k_neighbors": 5}, X, y)
     assert len(y_bal) > len(y)
 
 
 def test_smote_ir_decreases(arrays):
     X, y = arrays
-    _, y_bal = _resample("smote", {"k_neighbors": 5}, X, y)
+    _, y_bal, _ = _resample("smote", {"k_neighbors": 5}, X, y)
     assert _ir(y_bal) < _ir(y)
 
 
 def test_smote_original_rows_preserved(arrays):
     """All original rows (both classes) appear at the front of X_bal, unchanged."""
     X, y = arrays
-    X_bal, y_bal = _resample("smote", {"k_neighbors": 5}, X, y)
+    X_bal, y_bal, _ = _resample("smote", {"k_neighbors": 5}, X, y)
     assert np.allclose(X_bal[:len(X)], X)
     assert np.array_equal(y_bal[:len(y)], y)
 
@@ -182,7 +182,7 @@ def test_smote_original_rows_preserved(arrays):
 def test_smote_no_exact_duplicates(arrays):
     """Synthetic rows must not be exact copies of any original minority row."""
     X, y = arrays
-    X_bal, y_bal = _resample("smote", {"k_neighbors": 5}, X, y)
+    X_bal, y_bal, _ = _resample("smote", {"k_neighbors": 5}, X, y)
     X_orig_min = X[y == 1]
     synthetic_X = X_bal[len(X):]           # rows added by SMOTE
     for row in synthetic_X:
@@ -197,7 +197,7 @@ def test_smote_synthetic_are_interpolations(arrays):
     Verified using exhaustive parent search across all (A, B) pairs.
     """
     X, y = arrays
-    X_bal, y_bal = _resample("smote", {"k_neighbors": 5}, X, y)
+    X_bal, y_bal, _ = _resample("smote", {"k_neighbors": 5}, X, y)
     X_orig_min = X[y == 1]
     synthetic_X = X_bal[len(X):]
 
@@ -217,14 +217,14 @@ def test_smote_k_guard_small_minority(tiny_minority):
     """
     X, y = tiny_minority
     # minority has 3 samples; k=5 would crash without the guard
-    X_bal, y_bal = _resample("smote", {"k_neighbors": 5}, X, y)
+    X_bal, y_bal, _ = _resample("smote", {"k_neighbors": 5}, X, y)
     assert np.sum(y_bal == 1) >= np.sum(y == 1)   # minority grew or stayed
 
 
 def test_smote_reproducibility(arrays):
     X, y = arrays
-    X1, y1 = _resample("smote", {"k_neighbors": 5}, X, y)
-    X2, y2 = _resample("smote", {"k_neighbors": 5}, X, y)
+    X1, y1, _ = _resample("smote", {"k_neighbors": 5}, X, y)
+    X2, y2, _ = _resample("smote", {"k_neighbors": 5}, X, y)
     assert np.array_equal(X1, X2)
     assert np.array_equal(y1, y2)
 
@@ -237,7 +237,7 @@ def test_smote_categorical_roundtrip(cat_df):
     X_train, y_train, le, col_names, enc, cat_cols, numeric_cols, *_ = _prepare(cat_df, "label", 0.2)
     assert enc is not None, "Expected an OrdinalEncoder for the categorical column"
 
-    X_bal, y_bal = _resample("smote", {"k_neighbors": 3}, X_train, y_train)
+    X_bal, y_bal, _ = _resample("smote", {"k_neighbors": 3}, X_train, y_train)
 
     # Replicate the decode logic from _pipeline
     n_num = len(numeric_cols)
@@ -262,7 +262,7 @@ def test_smote_categorical_roundtrip(cat_df):
 @pytest.mark.parametrize("version", [1, 2, 3])
 def test_nearmiss_minority_unchanged(arrays, version):
     X, y = arrays
-    _, y_bal = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
     assert np.sum(y_bal == 1) == np.sum(y == 1)
 
 
@@ -270,28 +270,28 @@ def test_nearmiss_minority_unchanged(arrays, version):
 def test_nearmiss_majority_matches_minority(arrays, version):
     """NearMiss reduces majority until majority_count == minority_count."""
     X, y = arrays
-    _, y_bal = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
     assert np.sum(y_bal == 0) == np.sum(y_bal == 1)
 
 
 @pytest.mark.parametrize("version", [1, 2, 3])
 def test_nearmiss_majority_decreases(arrays, version):
     X, y = arrays
-    _, y_bal = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
     assert np.sum(y_bal == 0) < np.sum(y == 0)
 
 
 @pytest.mark.parametrize("version", [1, 2, 3])
 def test_nearmiss_total_decreases(arrays, version):
     X, y = arrays
-    _, y_bal = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
     assert len(y_bal) < len(y)
 
 
 @pytest.mark.parametrize("version", [1, 2, 3])
 def test_nearmiss_ir_decreases(arrays, version):
     X, y = arrays
-    _, y_bal = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
     assert _ir(y_bal) < _ir(y)
 
 
@@ -299,7 +299,7 @@ def test_nearmiss_ir_decreases(arrays, version):
 def test_nearmiss_no_data_corruption(arrays, version):
     """Every row kept by NearMiss must be an exact copy of an original row."""
     X, y = arrays
-    X_bal, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    X_bal, _, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
     for row in X_bal:
         assert np.any(np.all(np.isclose(X, row), axis=1)), \
             "NearMiss output contains a row not found in the original data"
@@ -309,8 +309,8 @@ def test_nearmiss_no_data_corruption(arrays, version):
 def test_nearmiss_determinism(arrays, version):
     """Same input must always produce the same output."""
     X, y = arrays
-    X1, y1 = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
-    X2, y2 = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    X1, y1, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    X2, y2, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
     assert np.array_equal(X1, X2)
     assert np.array_equal(y1, y2)
 
@@ -323,7 +323,7 @@ def test_nearmiss_versions_select_different_rows(arrays):
     X, y = arrays
     results = {}
     for v in [1, 2, 3]:
-        X_bal, _ = _resample("nearmiss", {"version": v, "n_neighbors": 3}, X, y)
+        X_bal, _, _ = _resample("nearmiss", {"version": v, "n_neighbors": 3}, X, y)
         # Represent the kept majority rows as a sorted tuple of row indices from original X
         maj_rows = set()
         for row in X_bal[X_bal[:, 0].argsort()]:
@@ -341,7 +341,7 @@ def test_nearmiss_versions_select_different_rows(arrays):
 def test_nearmiss_multiclass(multiclass_arrays, version):
     """NearMiss must work correctly on a 3-class dataset and reduce IR."""
     X, y = multiclass_arrays
-    X_bal, y_bal = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    X_bal, y_bal, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
     assert _ir(y_bal) < _ir(y)
     assert set(np.unique(y_bal)) == {0, 1, 2}   # all classes still present
 
@@ -352,14 +352,14 @@ def test_nearmiss_multiclass(multiclass_arrays, version):
 
 def test_combined_ir_decreases(arrays):
     X, y = arrays
-    _, y_bal = _resample("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y)
     assert _ir(y_bal) < _ir(y)
 
 
 def test_combined_minority_grows(arrays):
     """SMOTE ran → minority count is strictly larger than original."""
     X, y = arrays
-    _, y_bal = _resample("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y)
     assert np.sum(y_bal == 1) > np.sum(y == 1)
 
 
@@ -371,7 +371,7 @@ def test_combined_majority_does_not_grow(arrays):
     The count must be ≤ original, never greater.
     """
     X, y = arrays
-    _, y_bal = _resample("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y)
     assert np.sum(y_bal == 0) <= np.sum(y == 0)
 
 
@@ -383,8 +383,8 @@ def test_combined_smote_ran_first(arrays):
     If the order were reversed, minority would remain at its original count.
     """
     X, y = arrays
-    _, y_smote = _resample("smote", {"k_neighbors": 5}, X, y)
-    _, y_comb  = _resample("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y)
+    _, y_smote, _ = _resample("smote", {"k_neighbors": 5}, X, y)
+    _, y_comb, _  = _resample("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y)
     assert np.sum(y_comb == 1) == np.sum(y_smote == 1), (
         f"Minority count after Combined ({np.sum(y_comb==1)}) does not match "
         f"SMOTE-only count ({np.sum(y_smote==1)}). "
@@ -395,15 +395,15 @@ def test_combined_smote_ran_first(arrays):
 def test_combined_ir_close_to_one(arrays):
     """After SMOTE + NearMiss the dataset should be near-balanced (IR ≤ 1.5)."""
     X, y = arrays
-    _, y_bal = _resample("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y)
     assert _ir(y_bal) <= 1.5, f"IR after Combined = {_ir(y_bal):.2f}, expected ≤ 1.5"
 
 
 def test_combined_reproducibility(arrays):
     X, y = arrays
     params = {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}
-    X1, y1 = _resample("combined", params, X, y)
-    X2, y2 = _resample("combined", params, X, y)
+    X1, y1, _ = _resample("combined", params, X, y)
+    X2, y2, _ = _resample("combined", params, X, y)
     assert np.array_equal(X1, X2)
     assert np.array_equal(y1, y2)
 
@@ -422,28 +422,28 @@ ALL_METHOD_PARAMS = [
 @pytest.mark.parametrize("method,params", ALL_METHOD_PARAMS)
 def test_no_nan_introduced(arrays, method, params):
     X, y = arrays
-    X_bal, _ = _resample(method, params, X, y)
+    X_bal, _, _ = _resample(method, params, X, y)
     assert not np.any(np.isnan(X_bal))
 
 
 @pytest.mark.parametrize("method,params", ALL_METHOD_PARAMS)
 def test_no_inf_introduced(arrays, method, params):
     X, y = arrays
-    X_bal, _ = _resample(method, params, X, y)
+    X_bal, _, _ = _resample(method, params, X, y)
     assert not np.any(np.isinf(X_bal))
 
 
 @pytest.mark.parametrize("method,params", ALL_METHOD_PARAMS)
 def test_no_new_classes(arrays, method, params):
     X, y = arrays
-    _, y_bal = _resample(method, params, X, y)
+    _, y_bal, _ = _resample(method, params, X, y)
     assert set(np.unique(y_bal)) == set(np.unique(y))
 
 
 @pytest.mark.parametrize("method,params", ALL_METHOD_PARAMS)
 def test_ir_after_lower_than_before(arrays, method, params):
     X, y = arrays
-    _, y_bal = _resample(method, params, X, y)
+    _, y_bal, _ = _resample(method, params, X, y)
     assert _ir(y_bal) < _ir(y)
 
 
@@ -451,15 +451,15 @@ def test_ir_after_lower_than_before(arrays, method, params):
 def test_feature_count_unchanged(arrays, method, params):
     """Output must have the same number of feature columns as input."""
     X, y = arrays
-    X_bal, _ = _resample(method, params, X, y)
+    X_bal, _, _ = _resample(method, params, X, y)
     assert X_bal.shape[1] == X.shape[1]
 
 
 @pytest.mark.parametrize("method,params", ALL_METHOD_PARAMS)
 def test_reproducibility(arrays, method, params):
     X, y = arrays
-    X1, y1 = _resample(method, params, X, y)
-    X2, y2 = _resample(method, params, X, y)
+    X1, y1, _ = _resample(method, params, X, y)
+    X2, y2, _ = _resample(method, params, X, y)
     assert np.array_equal(X1, X2)
     assert np.array_equal(y1, y2)
 
@@ -513,7 +513,7 @@ def test_held_out_is_not_resampled(df):
     but still smaller than the full dataset (balancing did not run on all rows).
     """
     X_train, y_train, *_ = _prepare(df, "label", 0.2)
-    X_bal, y_bal = _resample("smote", {"k_neighbors": 5}, X_train, y_train)
+    X_bal, y_bal, _ = _resample("smote", {"k_neighbors": 5}, X_train, y_train)
     # SMOTE added rows on top of the training split, so output > training split
     assert len(y_bal) > len(y_train)
     # But output should be larger than the training split, not the whole df —
