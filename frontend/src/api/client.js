@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const api = axios.create({ baseURL: "http://localhost:8001/api" });
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8001/api";
+const api = axios.create({ baseURL: BASE_URL });
 
 api.interceptors.response.use(
   (r) => r,
@@ -57,11 +58,7 @@ export const cancelRun = (runId) => api.post(`/cancel/${runId}`);
 export const getResults = (runId) => api.get(`/results/${runId}`);
 
 // Export
-export const exportDatasetUrl = (runId) =>
-  `http://localhost:8001/api/export/dataset/${runId}`;
-export const exportSummaryUrl = (runId) =>
-  `http://localhost:8001/api/export/summary/${runId}`;
-export const exportLogUrl = (runId) =>
-  `http://localhost:8001/api/export/log/${runId}`;
-export const exportAllUrl = (runId) =>
-  `http://localhost:8001/api/export/all/${runId}`;
+export const exportDatasetUrl = (runId) => `${BASE_URL}/export/dataset/${runId}`;
+export const exportSummaryUrl = (runId) => `${BASE_URL}/export/summary/${runId}`;
+export const exportLogUrl     = (runId) => `${BASE_URL}/export/log/${runId}`;
+export const exportAllUrl     = (runId) => `${BASE_URL}/export/all/${runId}`;
