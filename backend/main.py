@@ -14,10 +14,11 @@ app = FastAPI(
 _origins = os.environ.get("FRONTEND_URL", "http://localhost:5173,http://127.0.0.1:5173")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_origins.split(","),
-    allow_credentials=True,
+    allow_origins=[o.strip() for o in _origins.split(",")],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 prefix = "/api"
@@ -33,4 +34,8 @@ app.include_router(export.router, prefix=prefix, tags=["Export"])
 
 @app.get("/", tags=["Health"])
 def root():
-    return {"status": "ok", "message": "ImbalanceKit API is running."}
+    return {
+        "status": "ok",
+        "message": "ImbalanceKit API is running.",
+        "allowed_origins": [o.strip() for o in _origins.split(",")],
+    }
