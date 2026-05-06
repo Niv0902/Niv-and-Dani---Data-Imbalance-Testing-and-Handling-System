@@ -113,7 +113,6 @@ def _build_summary_pdf(run_id: str, run: dict) -> bytes:
     method_label = _METHOD_LABELS.get(result["method"], result["method"].upper())
     params       = result.get("params", {})
     params_str   = ", ".join(f"{k}: {v}" for k, v in params.items()) or "—"
-    test_pct     = int(result["held_out_size"] * 100)
 
     config_rows = [
         ["Field",              "Value"],
@@ -122,7 +121,6 @@ def _build_summary_pdf(run_id: str, run: dict) -> bytes:
         ["Label Column",       result.get("label_col", "—")],
         ["Balancing Method",   method_label],
         ["Parameters",         params_str],
-        ["Balanced / Held-out Split", f"{100 - test_pct}% / {test_pct}%"],
         ["Run ID",             run_id],
         ["Elapsed Time",       f"{result.get('elapsed_seconds', '—')} s"],
         ["Generated At",       now],
@@ -151,7 +149,7 @@ def _build_summary_pdf(run_id: str, run: dict) -> bytes:
     story.append(t)
 
     # ── Class Distribution ────────────────────────────────────────────────────
-    story.append(Paragraph("Class Distribution (Balanced Portion)", section_s))
+    story.append(Paragraph("Class Distribution", section_s))
 
     dist_b      = result["class_distribution_before"]
     dist_a      = result["class_distribution_after"]

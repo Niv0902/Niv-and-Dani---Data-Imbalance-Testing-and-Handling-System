@@ -48,8 +48,8 @@ function ClassCountTable({ distBefore, distAfter, classNames }) {
       <thead>
         <tr>
           <th>Class</th>
-          <th>Original dataset</th>
-          <th>After balancing</th>
+          <th>Before</th>
+          <th>After</th>
           <th>Change</th>
         </tr>
       </thead>
@@ -102,13 +102,7 @@ export default function ResultsPage() {
   const {
     class_distribution_before, class_distribution_after,
     class_names, ir_before, ir_after, method, elapsed_seconds,
-    total_before, held_out_size,
   } = run;
-
-  const heldOutPct  = Math.round((held_out_size ?? 0.2) * 100);
-  const trainPct    = 100 - heldOutPct;
-  const heldOutRows = Math.round(total_before * (held_out_size ?? 0.2));
-  const trainRows   = total_before - heldOutRows;
 
   const irImproved = ir_after < ir_before;
   const sevBefore  = irSeverity(ir_before);
@@ -122,13 +116,6 @@ export default function ResultsPage() {
         Before vs. after balancing — method: <strong>{method.toUpperCase()}</strong>
         &nbsp;·&nbsp; elapsed: {elapsed_seconds}s
       </p>
-
-      <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#1e40af" }}>
-        <strong>How to read this page:</strong> "Before" = the full original dataset ({total_before.toLocaleString()} rows).
-        "After" = the {trainPct}% training portion ({trainRows.toLocaleString()} rows) after balancing.
-        The remaining {heldOutPct}% ({heldOutRows.toLocaleString()} rows) is the held-out set — excluded from balancing to prevent data leakage and not included in the export.
-        A reduction in majority class count reflects this split, not row deletion by the method.
-      </div>
 
       {!irImproved && (
         <div className="alert alert-warning" style={{ marginBottom: 16 }}>
@@ -149,7 +136,7 @@ export default function ResultsPage() {
           </div>
           <div className="ir-arrow">→</div>
           <div>
-            <div className="compare-label after">After (balanced portion)</div>
+            <div className="compare-label after">After balancing</div>
             <div style={{ fontSize: 32, fontWeight: 700, color: irImproved ? "var(--green)" : "var(--red)" }}>
               {ir_after}
             </div>
@@ -175,13 +162,13 @@ export default function ResultsPage() {
             dist={class_distribution_before}
             classNames={class_names}
             color={BEFORE_COLOR}
-            title={`Original dataset (${total_before.toLocaleString()} rows)`}
+            title="Before balancing"
           />
           <SingleDistChart
             dist={class_distribution_after}
             classNames={class_names}
             color={AFTER_COLOR}
-            title={`After balancing — training ${trainPct}% (${trainRows.toLocaleString()} rows)`}
+            title="After balancing"
           />
         </div>
       </div>

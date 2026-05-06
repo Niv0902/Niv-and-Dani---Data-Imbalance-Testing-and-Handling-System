@@ -42,7 +42,6 @@ export default function BalancingConfigPage() {
   const { datasetId, labelCol, setCurrentRunId, runs } = useApp();
   const [method, setMethod] = useState("smote");
   const [params, setParams] = useState({ k_neighbors: 5, version: 1, n_neighbors: 3, nearmiss_version: 1 });
-  const [heldOutSize, setHeldOutSize] = useState(0.2);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [expanded, setExpanded] = useState(false);
@@ -54,7 +53,7 @@ export default function BalancingConfigPage() {
   function handleRun() {
     setError(null);
     setLoading(true);
-    startBalancing(datasetId, labelCol, method, params, heldOutSize)
+    startBalancing(datasetId, labelCol, method, params)
       .then((r) => {
         setCurrentRunId(r.data.run_id);
         navigate("/processing");
@@ -152,27 +151,6 @@ export default function BalancingConfigPage() {
             </div>
           </>
         )}
-
-        <div className="param-row" style={{ marginTop: 8 }}>
-          <label className="param-label">
-            Held-out portion: <strong>{Math.round(heldOutSize * 100)}%</strong>
-            &nbsp;<span style={{ fontWeight: 400, color: "var(--gray-400)", fontSize: 12 }}>
-              (balanced: {Math.round((1 - heldOutSize) * 100)}%)
-            </span>
-          </label>
-          <input
-            type="range"
-            min={5} max={40} step={5}
-            value={heldOutSize * 100}
-            onChange={(e) => setHeldOutSize(parseInt(e.target.value) / 100)}
-            style={{ width: "100%", accentColor: "var(--blue)" }}
-          />
-          <span className="param-hint">
-            Balancing is applied only to the <strong>balanced portion</strong>.
-            The <strong>held-out portion</strong> is kept completely untouched —
-            set it aside to fairly evaluate any machine learning model you train later on this dataset.
-          </span>
-        </div>
 
         <button className="btn-link" style={{ fontSize: 13, marginTop: 4 }}
           onClick={() => setParams({ k_neighbors: 5, version: 1, n_neighbors: 3, nearmiss_version: 1 })}>

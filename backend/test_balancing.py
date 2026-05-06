@@ -234,7 +234,7 @@ def test_smote_categorical_roundtrip(cat_df):
     After SMOTE, the decoded categorical column must contain only valid original
     category labels — never a raw integer or an out-of-vocabulary value.
     """
-    X_train, y_train, le, col_names, enc, cat_cols, numeric_cols, *_ = _prepare(cat_df, "label", 0.2)
+    X_train, y_train, le, col_names, enc, cat_cols, numeric_cols, *_ = _prepare(cat_df, "label")
     assert enc is not None, "Expected an OrdinalEncoder for the categorical column"
 
     X_bal, y_bal, _ = _resample("smote", {"k_neighbors": 3}, X_train, y_train)
@@ -465,94 +465,43 @@ def test_reproducibility(arrays, method, params):
 
 
 # ---------------------------------------------------------------------------
-# _prepare / held-out isolation
+# _prepare
 # ---------------------------------------------------------------------------
 
-def test_prepare_train_size(df):
-    total = len(df)
-    X_train, y_train, *_ = _prepare(df, "label", 0.2)
-    expected_train = total - round(total * 0.2)
-    assert abs(len(y_train) - expected_train) <= 2
+def test_prepare_row_count(df):
+    X, y, *_ = _prepare(df, "label")
+    assert len(y) == len(df)
 
 
 def test_prepare_label_encoder(df):
-    _, y_train, le, *_ = _prepare(df, "label", 0.2)
+    _, y_train, le, *_ = _prepare(df, "label")
     assert set(le.classes_) == {"majority", "minority"}
     assert set(np.unique(y_train)).issubset({0, 1})
 
 
 def test_prepare_col_names(df):
-    _, _, _, col_names, *_ = _prepare(df, "label", 0.2)
+    _, _, _, col_names, *_ = _prepare(df, "label")
     assert len(col_names) == 4  # f1–f4; label excluded
 
 
 def test_prepare_does_not_modify_df(df):
     original_shape = df.shape
-    _prepare(df, "label", 0.2)
+    _prepare(df, "label")
     assert df.shape == original_shape
 
 
 def test_prepare_returns_encoder_for_categoricals(cat_df):
     """_prepare must return a fitted OrdinalEncoder when the df has categorical columns."""
-    _, _, _, _, enc, cat_cols, *_ = _prepare(cat_df, "label", 0.2)
+    _, _, _, _, enc, cat_cols, *_ = _prepare(cat_df, "label")
     assert enc is not None
     assert "workclass" in cat_cols
 
 
 def test_prepare_no_encoder_for_numeric_only(df):
     """_prepare must return enc=None when all feature columns are numeric."""
-    _, _, _, _, enc, cat_cols, *_ = _prepare(df, "label", 0.2)
+    _, _, _, _, enc, cat_cols, *_ = _prepare(df, "label")
     assert enc is None
     assert cat_cols == []
-
-
-def test_held_out_is_not_resampled(df):
-    """
-    The held-out portion is discarded by _prepare and never seen by _resample.
-    After SMOTE, the balanced output is larger than the balanced portion alone
-    but still smaller than the full dataset (balancing did not run on all rows).
-    """
-    X_train, y_train, *_ = _prepare(df, "label", 0.2)
-    X_bal, y_bal, _ = _resample("smote", {"k_neighbors": 5}, X_train, y_train)
-    # SMOTE added rows on top of the training split, so output > training split
-    assert len(y_bal) > len(y_train)
-    # But output should be larger than the training split, not the whole df —
-    # confirming balancing ran only on the split portion, not on df itself
-    assert len(y_train) < len(df)
-
-
-def test_held_out_rows_unchanged(df):
-    """
-    The held-out rows produced by train_test_split are byte-identical
-    regardless of what balancing method runs afterward.
-    _prepare always uses RANDOM_STATE=42 and stratify=y, so two calls
-    with the same df and held_out_size must produce the same held-out split.
-    """
-    from sklearn.model_selection import train_test_split
-    from sklearn.preprocessing import LabelEncoder, OrdinalEncoder
-    from sklearn.impute import SimpleImputer
-    from config import RANDOM_STATE
-
-    # Replicate the split that _prepare performs
-    le = LabelEncoder()
-    y = le.fit_transform(df["label"].astype(str))
-    X_num = df[["f1", "f2", "f3", "f4"]].values.astype(float)
-    X_imp = SimpleImputer(strategy="median").fit_transform(X_num)
-
-    _, X_heldout_ref, _, y_heldout_ref = train_test_split(
-        X_imp, y, test_size=0.2, random_state=RANDOM_STATE, stratify=y
-    )
-
-    # Now call _prepare (which does the same split internally) and resample
-    X_train, y_train, *_ = _prepare(df, "label", 0.2)
-    _resample("smote", {"k_neighbors": 5}, X_train, y_train)
-
-    # Do the split again — must be byte-identical to the first
-    _, X_heldout_2, _, y_heldout_2 = train_test_split(
-        X_imp, y, test_size=0.2, random_state=RANDOM_STATE, stratify=y
-    )
-    assert np.array_equal(X_heldout_ref, X_heldout_2)
-    assert np.array_equal(y_heldout_ref, y_heldout_2)
 
 
 def test_unknown_method_raises(arrays):

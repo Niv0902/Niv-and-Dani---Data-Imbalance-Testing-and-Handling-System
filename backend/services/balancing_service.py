@@ -5,7 +5,6 @@ from typing import Dict, Any, Tuple, List
 import numpy as np
 import pandas as pd
 from sklearn.impute import SimpleImputer
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, OrdinalEncoder
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import NearMiss
@@ -24,7 +23,6 @@ def start_pipeline(
     label_col: str,
     method: str,
     params: Dict[str, Any],
-    held_out_size: float,
     dataset_id: str = "",
 ) -> None:
     state.store_run(run_id, {
@@ -39,7 +37,7 @@ def start_pipeline(
     })
     thread = threading.Thread(
         target=_pipeline,
-        args=(run_id, df, label_col, method, params, held_out_size),
+        args=(run_id, df, label_col, method, params),
         daemon=True,
     )
     thread.start()
@@ -66,26 +64,25 @@ def _pipeline(
     label_col: str,
     method: str,
     params: Dict[str, Any],
-    held_out_size: float,
 ) -> None:
     start = time.time()
     try:
-        _update(run_id, "Splitting data", 20, start)
-        X_train, y_train, le, col_names, enc, cat_cols, numeric_cols, y_full = _prepare(df, label_col, held_out_size)
+        _update(run_id, "Preparing data", 20, start)
+        X, y, le, col_names, enc, cat_cols, numeric_cols = _prepare(df, label_col)
 
         _update(run_id, "Applying resampling", 60, start)
-        X_bal, y_bal, log_info = _resample(method, params, X_train, y_train)
+        X_bal, y_bal, log_info = _resample(method, params, X, y)
 
         _update(run_id, "Computing statistics", 90, start)
 
-        ir_before = _ir(y_full)
+        ir_before = _ir(y)
         ir_after  = _ir(y_bal)
 
         def _dist(y_arr: np.ndarray) -> Dict[str, int]:
             counts = np.bincount(y_arr, minlength=len(le.classes_))
             return {str(le.classes_[i]): int(counts[i]) for i in range(len(le.classes_))}
 
-        dist_before = _dist(y_full)
+        dist_before = _dist(y)
         dist_after  = _dist(y_bal)
 
         balanced_df = _decode_df(X_bal, y_bal, col_names, le, label_col, enc, cat_cols, numeric_cols)
@@ -116,12 +113,11 @@ def _pipeline(
                 "run_id": run_id,
                 "method": method,
                 "params": params,
-                "held_out_size": held_out_size,
                 "ir_before": ir_before,
                 "ir_after": ir_after,
                 "class_distribution_before": dist_before,
                 "class_distribution_after": dist_after,
-                "total_before": int(len(y_full)),
+                "total_before": int(len(y)),
                 "total_after": int(len(y_bal)),
                 "elapsed_seconds": elapsed,
                 "class_names": [str(c) for c in le.classes_.tolist()],
@@ -149,7 +145,6 @@ def _pipeline(
 def _prepare(
     df: pd.DataFrame,
     label_col: str,
-    held_out_size: float,
 ) -> Tuple[np.ndarray, np.ndarray, LabelEncoder, List[str]]:
     df_clean = df.dropna(subset=[label_col]).copy()
     feature_cols = [c for c in df_clean.columns if c != label_col]
@@ -160,15 +155,14 @@ def _prepare(
     le = LabelEncoder()
     y = le.fit_transform(y_raw.astype(str))
 
-    # Pre-flight: every class must have at least 2 samples before we even attempt a split.
-    pre_counts = np.bincount(y)
-    too_few_pre = [
-        f'"{le.classes_[i]}" ({int(pre_counts[i])} sample)'
-        for i in range(len(pre_counts))
-        if pre_counts[i] < 2
+    counts = np.bincount(y)
+    too_few = [
+        f'"{le.classes_[i]}" ({int(counts[i])} sample)'
+        for i in range(len(counts))
+        if counts[i] < 2
     ]
-    if too_few_pre:
-        many_singletons = len(too_few_pre) > len(pre_counts) * 0.5
+    if too_few:
+        many_singletons = len(too_few) > len(counts) * 0.5
         suggestion = (
             "This column may not be a proper label column — go back to Column Selection "
             "and choose a categorical column instead."
@@ -176,9 +170,9 @@ def _prepare(
             "Add more data for these classes, or go back and select a different label column."
         )
         raise ValueError(
-            f"{len(too_few_pre)} class(es) have fewer than 2 samples: "
-            f"{', '.join(too_few_pre[:5])}"
-            f"{' …' if len(too_few_pre) > 5 else ''}. "
+            f"{len(too_few)} class(es) have fewer than 2 samples: "
+            f"{', '.join(too_few[:5])}"
+            f"{' …' if len(too_few) > 5 else ''}. "
             f"{suggestion}"
         )
 
@@ -197,26 +191,7 @@ def _prepare(
     X_encoded = np.hstack(parts) if parts else np.empty((len(X), 0))
     X_imputed = SimpleImputer(strategy="median").fit_transform(X_encoded)
 
-    X_train, _X_heldout, y_train, _y_heldout = train_test_split(
-        X_imputed, y, test_size=held_out_size, random_state=RANDOM_STATE, stratify=y
-    )
-
-    # Post-split guard: a class could lose all samples in the balanced portion with a large held-out size.
-    post_counts = np.bincount(y_train, minlength=len(le.classes_))
-    too_few_post = [
-        f'"{le.classes_[i]}" ({int(post_counts[i])} sample)'
-        for i in range(len(post_counts))
-        if post_counts[i] < 2
-    ]
-    if too_few_post:
-        raise ValueError(
-            f"After splitting, the following class(es) have fewer than 2 rows in the balanced portion: "
-            f"{', '.join(too_few_post)}. "
-            f"The current held-out size is {int(held_out_size * 100)}%. "
-            "Try reducing the held-out portion (e.g. to 10%) or add more samples for these classes."
-        )
-
-    return X_train, y_train, le, col_names, enc, cat_cols, numeric_cols, y
+    return X_imputed, y, le, col_names, enc, cat_cols, numeric_cols
 
 
 def _decode_df(

@@ -41,13 +41,12 @@ export const getDiagnosis = (datasetId, labelCol) =>
   api.get("/diagnosis", { params: { dataset_id: datasetId, label_col: labelCol } });
 
 // Balance
-export const startBalancing = (datasetId, labelCol, method, params, heldOutSize) =>
+export const startBalancing = (datasetId, labelCol, method, params) =>
   api.post("/balance", {
     dataset_id: datasetId,
     label_col: labelCol,
     method,
     params,
-    held_out_size: heldOutSize,
   });
 
 // Status / Cancel
