@@ -241,9 +241,10 @@ button { cursor: pointer; font-family: inherit; font-size: inherit; }
 .ir-compare { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .ir-arrow { font-size: 20px; color: var(--gray-400); }
 
+.export-cards-grid .card { margin-top: 0; }
 .export-card { display: flex; flex-direction: column; gap: 12px; }
 .export-card-title { font-weight: 700; font-size: 16px; color: var(--gray-800); }
-.export-card-desc { font-size: 13px; color: var(--gray-500); }
+.export-card-desc { font-size: 13px; color: var(--gray-500); flex: 1; }
 
 pre.json-preview {
   background: var(--gray-900); color: #d1d5db; padding: 16px; border-radius: var(--radius);

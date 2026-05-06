@@ -265,11 +265,17 @@ def _resample(
     elif method == "combined":
         k = int(params.get("k_neighbors", 5))
         minority_count = int(np.bincount(y_train).min())
+        majority_count = int(np.bincount(y_train).max())
         k = min(k, minority_count - 1)
         if k < 1:
             k = 1
         n = int(params.get("n_neighbors", 3))
-        smote = SMOTE(k_neighbors=k, random_state=RANDOM_STATE)
+        # Midpoint strategy: SMOTE grows minority halfway toward majority,
+        # then NearMiss shrinks majority down to meet it. Both methods contribute.
+        # If SMOTE fully balanced first, NearMiss would see equal classes and do nothing.
+        target = (minority_count + majority_count) // 2
+        smote = SMOTE(k_neighbors=k, random_state=RANDOM_STATE,
+                      sampling_strategy=target / majority_count)
         X_s, y_s = smote.fit_resample(X_train, y_train)
         X_s = _constrain_to_original(X_s, X_train)  # constrain before NearMiss uses distances
         n_orig = len(X_train)

@@ -334,32 +334,25 @@ def test_combined_minority_grows(arrays):
 
 
 def test_combined_majority_does_not_grow(arrays):
-    """
-    NearMiss only removes majority rows — it never adds them.
-    With 100 majority and 20 minority: after SMOTE the dataset is 100:100,
-    so NearMiss targets 100 majority and keeps all 100 (no strict reduction).
-    The count must be ≤ original, never greater.
-    """
+    """NearMiss only removes majority rows — the final majority count must be ≤ original."""
     X, y = arrays
     _, y_bal, _ = _resample("combined", {"k_neighbors": 5, "n_neighbors": 3}, X, y)
     assert np.sum(y_bal == 0) <= np.sum(y == 0)
 
 
-def test_combined_smote_ran_first(arrays):
+def test_combined_both_methods_contribute(arrays):
     """
-    In the combined pipeline SMOTE runs before NearMiss.
-    NearMiss only touches the majority class, so the minority count after
-    Combined must equal the minority count produced by standalone SMOTE.
-    If the order were reversed, minority would remain at its original count.
+    Combined uses a midpoint strategy so both methods do real work:
+    SMOTE grows minority from original count toward majority,
+    NearMiss shrinks majority down to meet it.
+    Verifies minority grew (SMOTE ran) AND majority shrank (NearMiss ran).
     """
     X, y = arrays
-    _, y_smote, _ = _resample("smote", {"k_neighbors": 5}, X, y)
-    _, y_comb, _  = _resample("combined", {"k_neighbors": 5, "n_neighbors": 3}, X, y)
-    assert np.sum(y_comb == 1) == np.sum(y_smote == 1), (
-        f"Minority count after Combined ({np.sum(y_comb==1)}) does not match "
-        f"SMOTE-only count ({np.sum(y_smote==1)}). "
-        "This suggests SMOTE did not run first."
-    )
+    _, y_comb, _ = _resample("combined", {"k_neighbors": 5, "n_neighbors": 3}, X, y)
+    assert np.sum(y_comb == 1) > np.sum(y == 1), \
+        "SMOTE should have grown the minority class"
+    assert np.sum(y_comb == 0) < np.sum(y == 0), \
+        "NearMiss should have reduced the majority class"
 
 
 def test_combined_ir_close_to_one(arrays):
