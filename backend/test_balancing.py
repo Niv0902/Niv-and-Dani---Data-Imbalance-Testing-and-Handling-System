@@ -256,92 +256,62 @@ def test_smote_categorical_roundtrip(cat_df):
 
 
 # ---------------------------------------------------------------------------
-# NearMiss (versions 1 / 2 / 3)
+# NearMiss (version 1 — hardcoded in backend)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("version", [1, 2, 3])
-def test_nearmiss_minority_unchanged(arrays, version):
+def test_nearmiss_minority_unchanged(arrays):
     X, y = arrays
-    _, y_bal, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("nearmiss", {"n_neighbors": 3}, X, y)
     assert np.sum(y_bal == 1) == np.sum(y == 1)
 
 
-@pytest.mark.parametrize("version", [1, 2, 3])
-def test_nearmiss_majority_matches_minority(arrays, version):
+def test_nearmiss_majority_matches_minority(arrays):
     """NearMiss reduces majority until majority_count == minority_count."""
     X, y = arrays
-    _, y_bal, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("nearmiss", {"n_neighbors": 3}, X, y)
     assert np.sum(y_bal == 0) == np.sum(y_bal == 1)
 
 
-@pytest.mark.parametrize("version", [1, 2, 3])
-def test_nearmiss_majority_decreases(arrays, version):
+def test_nearmiss_majority_decreases(arrays):
     X, y = arrays
-    _, y_bal, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("nearmiss", {"n_neighbors": 3}, X, y)
     assert np.sum(y_bal == 0) < np.sum(y == 0)
 
 
-@pytest.mark.parametrize("version", [1, 2, 3])
-def test_nearmiss_total_decreases(arrays, version):
+def test_nearmiss_total_decreases(arrays):
     X, y = arrays
-    _, y_bal, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("nearmiss", {"n_neighbors": 3}, X, y)
     assert len(y_bal) < len(y)
 
 
-@pytest.mark.parametrize("version", [1, 2, 3])
-def test_nearmiss_ir_decreases(arrays, version):
+def test_nearmiss_ir_decreases(arrays):
     X, y = arrays
-    _, y_bal, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("nearmiss", {"n_neighbors": 3}, X, y)
     assert _ir(y_bal) < _ir(y)
 
 
-@pytest.mark.parametrize("version", [1, 2, 3])
-def test_nearmiss_no_data_corruption(arrays, version):
+def test_nearmiss_no_data_corruption(arrays):
     """Every row kept by NearMiss must be an exact copy of an original row."""
     X, y = arrays
-    X_bal, _, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    X_bal, _, _ = _resample("nearmiss", {"n_neighbors": 3}, X, y)
     for row in X_bal:
         assert np.any(np.all(np.isclose(X, row), axis=1)), \
             "NearMiss output contains a row not found in the original data"
 
 
-@pytest.mark.parametrize("version", [1, 2, 3])
-def test_nearmiss_determinism(arrays, version):
+def test_nearmiss_determinism(arrays):
     """Same input must always produce the same output."""
     X, y = arrays
-    X1, y1, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
-    X2, y2, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    X1, y1, _ = _resample("nearmiss", {"n_neighbors": 3}, X, y)
+    X2, y2, _ = _resample("nearmiss", {"n_neighbors": 3}, X, y)
     assert np.array_equal(X1, X2)
     assert np.array_equal(y1, y2)
 
 
-def test_nearmiss_versions_select_different_rows(arrays):
-    """
-    The three NearMiss versions use different distance criteria, so they must
-    select different subsets of majority rows on any non-trivial dataset.
-    """
-    X, y = arrays
-    results = {}
-    for v in [1, 2, 3]:
-        X_bal, _, _ = _resample("nearmiss", {"version": v, "n_neighbors": 3}, X, y)
-        # Represent the kept majority rows as a sorted tuple of row indices from original X
-        maj_rows = set()
-        for row in X_bal[X_bal[:, 0].argsort()]:
-            match = np.where(np.all(np.isclose(X, row), axis=1))[0]
-            if len(match):
-                maj_rows.add(match[0])
-        results[v] = frozenset(maj_rows)
-
-    # At least two of the three versions must differ
-    assert not (results[1] == results[2] == results[3]), \
-        "All three NearMiss versions selected identical rows — they should differ"
-
-
-@pytest.mark.parametrize("version", [1, 2, 3])
-def test_nearmiss_multiclass(multiclass_arrays, version):
+def test_nearmiss_multiclass(multiclass_arrays):
     """NearMiss must work correctly on a 3-class dataset and reduce IR."""
     X, y = multiclass_arrays
-    X_bal, y_bal, _ = _resample("nearmiss", {"version": version, "n_neighbors": 3}, X, y)
+    X_bal, y_bal, _ = _resample("nearmiss", {"n_neighbors": 3}, X, y)
     assert _ir(y_bal) < _ir(y)
     assert set(np.unique(y_bal)) == {0, 1, 2}   # all classes still present
 
@@ -352,14 +322,14 @@ def test_nearmiss_multiclass(multiclass_arrays, version):
 
 def test_combined_ir_decreases(arrays):
     X, y = arrays
-    _, y_bal, _ = _resample("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("combined", {"k_neighbors": 5, "n_neighbors": 3}, X, y)
     assert _ir(y_bal) < _ir(y)
 
 
 def test_combined_minority_grows(arrays):
     """SMOTE ran → minority count is strictly larger than original."""
     X, y = arrays
-    _, y_bal, _ = _resample("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("combined", {"k_neighbors": 5, "n_neighbors": 3}, X, y)
     assert np.sum(y_bal == 1) > np.sum(y == 1)
 
 
@@ -371,7 +341,7 @@ def test_combined_majority_does_not_grow(arrays):
     The count must be ≤ original, never greater.
     """
     X, y = arrays
-    _, y_bal, _ = _resample("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("combined", {"k_neighbors": 5, "n_neighbors": 3}, X, y)
     assert np.sum(y_bal == 0) <= np.sum(y == 0)
 
 
@@ -384,7 +354,7 @@ def test_combined_smote_ran_first(arrays):
     """
     X, y = arrays
     _, y_smote, _ = _resample("smote", {"k_neighbors": 5}, X, y)
-    _, y_comb, _  = _resample("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y)
+    _, y_comb, _  = _resample("combined", {"k_neighbors": 5, "n_neighbors": 3}, X, y)
     assert np.sum(y_comb == 1) == np.sum(y_smote == 1), (
         f"Minority count after Combined ({np.sum(y_comb==1)}) does not match "
         f"SMOTE-only count ({np.sum(y_smote==1)}). "
@@ -395,13 +365,13 @@ def test_combined_smote_ran_first(arrays):
 def test_combined_ir_close_to_one(arrays):
     """After SMOTE + NearMiss the dataset should be near-balanced (IR ≤ 1.5)."""
     X, y = arrays
-    _, y_bal, _ = _resample("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y)
+    _, y_bal, _ = _resample("combined", {"k_neighbors": 5, "n_neighbors": 3}, X, y)
     assert _ir(y_bal) <= 1.5, f"IR after Combined = {_ir(y_bal):.2f}, expected ≤ 1.5"
 
 
 def test_combined_reproducibility(arrays):
     X, y = arrays
-    params = {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}
+    params = {"k_neighbors": 5, "n_neighbors": 3}
     X1, y1, _ = _resample("combined", params, X, y)
     X2, y2, _ = _resample("combined", params, X, y)
     assert np.array_equal(X1, X2)
@@ -414,8 +384,8 @@ def test_combined_reproducibility(arrays):
 
 ALL_METHOD_PARAMS = [
     ("smote",    {"k_neighbors": 5}),
-    ("nearmiss", {"version": 1, "n_neighbors": 3}),
-    ("combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}),
+    ("nearmiss", {"n_neighbors": 3}),
+    ("combined", {"k_neighbors": 5, "n_neighbors": 3}),
 ]
 
 
@@ -554,7 +524,7 @@ def test_combined_integer_columns_stay_integer(integer_arrays):
     """Combined (SMOTE + NearMiss) must also produce only whole numbers for integer columns."""
     X, y = integer_arrays
     X_bal, y_bal, log_info = _resample(
-        "combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y
+        "combined", {"k_neighbors": 5, "n_neighbors": 3}, X, y
     )
     # Check the added (SMOTE-generated) rows specifically
     added_X, _ = log_info["added"]
@@ -580,7 +550,7 @@ def test_smote_is_original_counts(arrays):
 def test_nearmiss_is_original_all_ones(arrays):
     """NearMiss only removes rows — every kept row must have is_original=1."""
     X, y = arrays
-    X_bal, _, log_info = _resample("nearmiss", {"version": 1, "n_neighbors": 3}, X, y)
+    X_bal, _, log_info = _resample("nearmiss", {"n_neighbors": 3}, X, y)
     flags = log_info["is_original"]
     assert len(flags) == len(X_bal)
     assert np.all(flags == 1), "NearMiss produced a row flagged as synthetic"
@@ -590,7 +560,7 @@ def test_combined_is_original_mixed(arrays):
     """Combined: some rows original (1), some synthetic (0); lengths match output."""
     X, y = arrays
     X_bal, _, log_info = _resample(
-        "combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y
+        "combined", {"k_neighbors": 5, "n_neighbors": 3}, X, y
     )
     flags = log_info["is_original"]
     assert len(flags) == len(X_bal)

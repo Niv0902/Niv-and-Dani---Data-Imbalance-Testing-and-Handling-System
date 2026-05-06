@@ -254,9 +254,8 @@ def _resample(
         return X_bal, y_bal, {"added": (X_bal[n:], y_bal[n:]), "deleted": None, "is_original": is_original}
 
     elif method == "nearmiss":
-        version = int(params.get("version", 1))
         n = int(params.get("n_neighbors", 3))
-        nm = NearMiss(version=version, n_neighbors=n)
+        nm = NearMiss(version=1, n_neighbors=n)
         X_bal, y_bal = nm.fit_resample(X_train, y_train)
         kept = set(nm.sample_indices_)
         deleted_mask = np.array([i not in kept for i in range(len(X_train))])
@@ -269,14 +268,13 @@ def _resample(
         k = min(k, minority_count - 1)
         if k < 1:
             k = 1
-        version = int(params.get("nearmiss_version", 1))
         n = int(params.get("n_neighbors", 3))
         smote = SMOTE(k_neighbors=k, random_state=RANDOM_STATE)
         X_s, y_s = smote.fit_resample(X_train, y_train)
         X_s = _constrain_to_original(X_s, X_train)  # constrain before NearMiss uses distances
         n_orig = len(X_train)
         added_X, added_y = X_s[n_orig:], y_s[n_orig:]
-        nm = NearMiss(version=version, n_neighbors=n)
+        nm = NearMiss(version=1, n_neighbors=n)
         X_bal, y_bal = nm.fit_resample(X_s, y_s)
         kept = set(nm.sample_indices_)
         deleted_mask = np.array([i not in kept for i in range(len(X_s))])

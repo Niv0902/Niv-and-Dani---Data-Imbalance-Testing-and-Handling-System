@@ -113,43 +113,20 @@ export default function BalancingConfigPage() {
         )}
 
         {(method === "nearmiss" || method === "combined") && (
-          <>
-            <div className="param-row">
-              <label className="param-label">
-                NearMiss version <span className="badge badge-info" style={{ fontSize: 11 }}>default: 1</span>
-              </label>
-              <select
-                className="param-input"
-                style={{ maxWidth: 120 }}
-                value={method === "combined" ? params.nearmiss_version : params.version}
-                onChange={(e) => {
-                  const v = parseInt(e.target.value);
-                  method === "combined" ? setParam("nearmiss_version", v) : setParam("version", v);
-                }}
-              >
-                <option value={1}>Version 1</option>
-                <option value={2}>Version 2</option>
-                <option value={3}>Version 3</option>
-              </select>
-              <span className="param-hint">
-                V1: select nearest majority to minority. V2: farthest minority. V3: 2-step selection.
-              </span>
-            </div>
-            <div className="param-row">
-              <label className="param-label">
-                n_neighbors <span className="badge badge-info" style={{ fontSize: 11 }}>default: 3</span>
-              </label>
-              <input
-                type="number"
-                className="param-input"
-                min={1} max={10}
-                value={params.n_neighbors}
-                onChange={(e) => setParam("n_neighbors", parseInt(e.target.value) || 3)}
-                style={{ maxWidth: 120 }}
-              />
-              <span className="param-hint">Number of nearest neighbours for NearMiss selection.</span>
-            </div>
-          </>
+          <div className="param-row">
+            <label className="param-label">
+              n_neighbors <span className="badge badge-info" style={{ fontSize: 11 }}>default: 3</span>
+            </label>
+            <input
+              type="number"
+              className="param-input"
+              min={1} max={10}
+              value={params.n_neighbors}
+              onChange={(e) => setParam("n_neighbors", parseInt(e.target.value) || 3)}
+              style={{ maxWidth: 120 }}
+            />
+            <span className="param-hint">Number of nearest neighbours for NearMiss selection.</span>
+          </div>
         )}
 
         <button className="btn-link" style={{ fontSize: 13, marginTop: 4 }}
