@@ -85,7 +85,9 @@ def _pipeline(
         dist_before = _dist(y)
         dist_after  = _dist(y_bal)
 
+        is_original = log_info["is_original"]
         balanced_df = _decode_df(X_bal, y_bal, col_names, le, label_col, enc, cat_cols, numeric_cols)
+        balanced_df["is_original"] = is_original
 
         log_parts = []
         if log_info.get("added") is not None:
@@ -121,6 +123,8 @@ def _pipeline(
                 "total_after": int(len(y_bal)),
                 "elapsed_seconds": elapsed,
                 "class_names": [str(c) for c in le.classes_.tolist()],
+                "original_count": int(is_original.sum()),
+                "synthetic_count": int((is_original == 0).sum()),
                 "balanced_df": balanced_df,
                 "log_df": log_df,
                 "label_col": label_col,
@@ -246,7 +250,8 @@ def _resample(
         X_bal, y_bal = smote.fit_resample(X_train, y_train)
         X_bal = _constrain_to_original(X_bal, X_train)
         n = len(X_train)
-        return X_bal, y_bal, {"added": (X_bal[n:], y_bal[n:]), "deleted": None}
+        is_original = np.concatenate([np.ones(n, dtype=int), np.zeros(len(X_bal) - n, dtype=int)])
+        return X_bal, y_bal, {"added": (X_bal[n:], y_bal[n:]), "deleted": None, "is_original": is_original}
 
     elif method == "nearmiss":
         version = int(params.get("version", 1))
@@ -255,7 +260,8 @@ def _resample(
         X_bal, y_bal = nm.fit_resample(X_train, y_train)
         kept = set(nm.sample_indices_)
         deleted_mask = np.array([i not in kept for i in range(len(X_train))])
-        return X_bal, y_bal, {"added": None, "deleted": (X_train[deleted_mask], y_train[deleted_mask])}
+        is_original = np.ones(len(X_bal), dtype=int)
+        return X_bal, y_bal, {"added": None, "deleted": (X_train[deleted_mask], y_train[deleted_mask]), "is_original": is_original}
 
     elif method == "combined":
         k = int(params.get("k_neighbors", 5))
@@ -274,7 +280,9 @@ def _resample(
         X_bal, y_bal = nm.fit_resample(X_s, y_s)
         kept = set(nm.sample_indices_)
         deleted_mask = np.array([i not in kept for i in range(len(X_s))])
-        return X_bal, y_bal, {"added": (added_X, added_y), "deleted": (X_s[deleted_mask], y_s[deleted_mask])}
+        is_orig_s = np.concatenate([np.ones(n_orig, dtype=int), np.zeros(len(X_s) - n_orig, dtype=int)])
+        is_original = is_orig_s[nm.sample_indices_]
+        return X_bal, y_bal, {"added": (added_X, added_y), "deleted": (X_s[deleted_mask], y_s[deleted_mask]), "is_original": is_original}
 
     raise ValueError(f"Unknown balancing method: {method!r}")
 

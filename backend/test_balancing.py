@@ -561,3 +561,40 @@ def test_combined_integer_columns_stay_integer(integer_arrays):
     assert np.all(added_X == np.floor(added_X)), (
         "Combined method produced fractional values in SMOTE-added rows for integer columns"
     )
+
+
+# ---------------------------------------------------------------------------
+# is_original flag in log_info
+# ---------------------------------------------------------------------------
+
+def test_smote_is_original_counts(arrays):
+    """SMOTE: original rows flagged 1, synthetic rows flagged 0."""
+    X, y = arrays
+    X_bal, _, log_info = _resample("smote", {"k_neighbors": 5}, X, y)
+    flags = log_info["is_original"]
+    assert len(flags) == len(X_bal)
+    assert int(flags.sum()) == len(X), "Expected exactly len(X) original rows"
+    assert int((flags == 0).sum()) == len(X_bal) - len(X), "Expected synthetic count to match added rows"
+
+
+def test_nearmiss_is_original_all_ones(arrays):
+    """NearMiss only removes rows — every kept row must have is_original=1."""
+    X, y = arrays
+    X_bal, _, log_info = _resample("nearmiss", {"version": 1, "n_neighbors": 3}, X, y)
+    flags = log_info["is_original"]
+    assert len(flags) == len(X_bal)
+    assert np.all(flags == 1), "NearMiss produced a row flagged as synthetic"
+
+
+def test_combined_is_original_mixed(arrays):
+    """Combined: some rows original (1), some synthetic (0); lengths match output."""
+    X, y = arrays
+    X_bal, _, log_info = _resample(
+        "combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y
+    )
+    flags = log_info["is_original"]
+    assert len(flags) == len(X_bal)
+    assert set(flags).issubset({0, 1}), "is_original must only contain 0 or 1"
+    # Combined always produces some synthetic rows (SMOTE ran)
+    assert (flags == 0).any(), "Combined should have at least some synthetic rows"
+    assert (flags == 1).any(), "Combined should have at least some original rows"

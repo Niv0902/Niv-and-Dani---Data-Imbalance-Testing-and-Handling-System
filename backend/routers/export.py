@@ -187,6 +187,26 @@ def _build_summary_pdf(run_id: str, run: dict) -> bytes:
     t.setStyle(_tbl_style(delta_cmds))
     story.append(t)
 
+    # ── Row Composition ───────────────────────────────────────────────────────
+    story.append(Paragraph("Row Composition", section_s))
+
+    orig_n = result.get("original_count", total_a)
+    synt_n = result.get("synthetic_count", 0)
+    comp_rows = [
+        ["Row Type",       "Count",       "%"],
+        ["Original rows",  str(orig_n),   f"{orig_n / total_a * 100:.1f}%" if total_a else "—"],
+        ["Synthetic rows", str(synt_n),   f"{synt_n / total_a * 100:.1f}%" if total_a else "—"],
+        ["Total",          str(total_a),  "100%"],
+    ]
+    last_comp = len(comp_rows) - 1
+    t = Table(comp_rows, colWidths=[6 * cm, 4 * cm, 7 * cm])
+    t.setStyle(_tbl_style([
+        ("FONTNAME",   (0, last_comp), (-1, last_comp), "Helvetica-Bold"),
+        ("BACKGROUND", (0, last_comp), (-1, last_comp), GRAY_L),
+        ("TEXTCOLOR",  (1, 2),         (1, 2),          BLUE if synt_n > 0 else colors.black),
+    ]))
+    story.append(t)
+
     # ── Footer ────────────────────────────────────────────────────────────────
     story.append(Spacer(1, 0.6 * cm))
     story.append(HRFlowable(width="100%", thickness=0.4, color=GRAY_B))

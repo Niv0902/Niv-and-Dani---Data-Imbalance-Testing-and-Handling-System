@@ -102,6 +102,7 @@ export default function ResultsPage() {
   const {
     class_distribution_before, class_distribution_after,
     class_names, ir_before, ir_after, method, elapsed_seconds,
+    original_count, synthetic_count,
   } = run;
 
   const irImproved = ir_after < ir_before;
@@ -183,6 +184,12 @@ export default function ResultsPage() {
             classNames={class_names}
           />
         </div>
+        {original_count != null && (
+          <div style={{ display: "flex", gap: 24, marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--gray-200)", fontSize: 13, color: "var(--gray-600)" }}>
+            <span>Original rows: <strong style={{ color: "var(--gray-900)" }}>{original_count.toLocaleString()}</strong></span>
+            <span>Synthetic rows: <strong style={{ color: synthetic_count > 0 ? "var(--blue)" : "var(--gray-900)" }}>{synthetic_count.toLocaleString()}</strong></span>
+          </div>
+        )}
       </div>
 
       <div className="nav-row">
