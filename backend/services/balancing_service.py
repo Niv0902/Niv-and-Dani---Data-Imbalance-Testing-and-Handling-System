@@ -215,6 +215,24 @@ def _decode_df(
     return df
 
 
+def _constrain_to_original(X_bal: np.ndarray, X_orig: np.ndarray) -> np.ndarray:
+    """
+    Per-column post-processing for SMOTE synthetic rows:
+      1. Clip to [col_min, col_max] of the original data.
+      2. Round to integer if every original value in that column is a whole number
+         (e.g. Pregnancies, Age, Outcome).
+    Applying to all rows is safe — original rows are already in-range and unaffected.
+    """
+    result = X_bal.copy()
+    for j in range(X_orig.shape[1]):
+        col_min = float(X_orig[:, j].min())
+        col_max = float(X_orig[:, j].max())
+        result[:, j] = np.clip(result[:, j], col_min, col_max)
+        if np.all(X_orig[:, j] == np.floor(X_orig[:, j])):
+            result[:, j] = np.round(result[:, j])
+    return result
+
+
 def _resample(
     method: str, params: Dict[str, Any], X_train: np.ndarray, y_train: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray, dict]:
@@ -226,6 +244,7 @@ def _resample(
             k = 1
         smote = SMOTE(k_neighbors=k, random_state=RANDOM_STATE)
         X_bal, y_bal = smote.fit_resample(X_train, y_train)
+        X_bal = _constrain_to_original(X_bal, X_train)
         n = len(X_train)
         return X_bal, y_bal, {"added": (X_bal[n:], y_bal[n:]), "deleted": None}
 
@@ -248,6 +267,7 @@ def _resample(
         n = int(params.get("n_neighbors", 3))
         smote = SMOTE(k_neighbors=k, random_state=RANDOM_STATE)
         X_s, y_s = smote.fit_resample(X_train, y_train)
+        X_s = _constrain_to_original(X_s, X_train)  # constrain before NearMiss uses distances
         n_orig = len(X_train)
         added_X, added_y = X_s[n_orig:], y_s[n_orig:]
         nm = NearMiss(version=version, n_neighbors=n)

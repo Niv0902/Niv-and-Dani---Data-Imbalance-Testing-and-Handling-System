@@ -508,3 +508,56 @@ def test_unknown_method_raises(arrays):
     X, y = arrays
     with pytest.raises(ValueError, match="Unknown balancing method"):
         _resample("bogus", {}, X, y)
+
+
+# ---------------------------------------------------------------------------
+# SMOTE constraint: integer rounding and range clipping
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def integer_arrays():
+    """
+    Dataset whose every feature is a whole number (simulating columns like
+    Pregnancies, Age, Outcome in the Pima diabetes dataset).
+    60 majority (class 0), 20 minority (class 1).
+    """
+    rng = np.random.default_rng(7)
+    X_maj = rng.integers(0, 10, size=(60, 3)).astype(float)
+    X_min = rng.integers(0, 10, size=(20, 3)).astype(float)
+    X = np.vstack([X_maj, X_min])
+    y = np.concatenate([np.zeros(60, dtype=int), np.ones(20, dtype=int)])
+    return X, y
+
+
+def test_smote_integer_columns_stay_integer(integer_arrays):
+    """All synthetic SMOTE values must be whole numbers when original data is all integers."""
+    X, y = integer_arrays
+    X_bal, _, _ = _resample("smote", {"k_neighbors": 5}, X, y)
+    synthetic = X_bal[len(X):]
+    assert np.all(synthetic == np.floor(synthetic)), (
+        "SMOTE produced fractional values in columns that were all integers in the original data"
+    )
+
+
+def test_smote_values_clamped_to_range(integer_arrays):
+    """No SMOTE output value may fall outside the original per-column [min, max] range."""
+    X, y = integer_arrays
+    X_bal, _, _ = _resample("smote", {"k_neighbors": 5}, X, y)
+    for j in range(X.shape[1]):
+        col_min = X[:, j].min()
+        col_max = X[:, j].max()
+        assert X_bal[:, j].min() >= col_min, f"Column {j}: value below original minimum"
+        assert X_bal[:, j].max() <= col_max, f"Column {j}: value above original maximum"
+
+
+def test_combined_integer_columns_stay_integer(integer_arrays):
+    """Combined (SMOTE + NearMiss) must also produce only whole numbers for integer columns."""
+    X, y = integer_arrays
+    X_bal, y_bal, log_info = _resample(
+        "combined", {"k_neighbors": 5, "nearmiss_version": 1, "n_neighbors": 3}, X, y
+    )
+    # Check the added (SMOTE-generated) rows specifically
+    added_X, _ = log_info["added"]
+    assert np.all(added_X == np.floor(added_X)), (
+        "Combined method produced fractional values in SMOTE-added rows for integer columns"
+    )
