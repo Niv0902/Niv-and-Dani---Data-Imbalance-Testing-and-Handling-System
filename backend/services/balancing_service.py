@@ -241,9 +241,7 @@ def _resample(
     method: str, params: Dict[str, Any], X_train: np.ndarray, y_train: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray, dict]:
     if method == "smote":
-        k = int(params.get("k_neighbors", 5))
-        minority_count = int(np.bincount(y_train).min())
-        k = min(k, minority_count - 1)
+        k = min(5, int(np.bincount(y_train).min()) - 1)
         if k < 1:
             k = 1
         smote = SMOTE(k_neighbors=k, random_state=RANDOM_STATE)
@@ -254,8 +252,7 @@ def _resample(
         return X_bal, y_bal, {"added": (X_bal[n:], y_bal[n:]), "deleted": None, "is_original": is_original}
 
     elif method == "nearmiss":
-        n = int(params.get("n_neighbors", 3))
-        nm = NearMiss(version=1, n_neighbors=n)
+        nm = NearMiss(version=1, n_neighbors=3)
         X_bal, y_bal = nm.fit_resample(X_train, y_train)
         kept = set(nm.sample_indices_)
         deleted_mask = np.array([i not in kept for i in range(len(X_train))])
@@ -263,13 +260,11 @@ def _resample(
         return X_bal, y_bal, {"added": None, "deleted": (X_train[deleted_mask], y_train[deleted_mask]), "is_original": is_original}
 
     elif method == "combined":
-        k = int(params.get("k_neighbors", 5))
         minority_count = int(np.bincount(y_train).min())
         majority_count = int(np.bincount(y_train).max())
-        k = min(k, minority_count - 1)
+        k = min(5, minority_count - 1)
         if k < 1:
             k = 1
-        n = int(params.get("n_neighbors", 3))
         # Midpoint strategy: SMOTE grows minority halfway toward majority,
         # then NearMiss shrinks majority down to meet it. Both methods contribute.
         # If SMOTE fully balanced first, NearMiss would see equal classes and do nothing.
@@ -280,7 +275,7 @@ def _resample(
         X_s = _constrain_to_original(X_s, X_train)  # constrain before NearMiss uses distances
         n_orig = len(X_train)
         added_X, added_y = X_s[n_orig:], y_s[n_orig:]
-        nm = NearMiss(version=1, n_neighbors=n)
+        nm = NearMiss(version=1, n_neighbors=3)
         X_bal, y_bal = nm.fit_resample(X_s, y_s)
         kept = set(nm.sample_indices_)
         deleted_mask = np.array([i not in kept for i in range(len(X_s))])

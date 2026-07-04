@@ -41,19 +41,14 @@ export default function BalancingConfigPage() {
   const navigate = useNavigate();
   const { datasetId, labelCol, setCurrentRunId, runs } = useApp();
   const [method, setMethod] = useState("smote");
-  const [params, setParams] = useState({ k_neighbors: 5, version: 1, n_neighbors: 3, nearmiss_version: 1 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [expanded, setExpanded] = useState(false);
 
-  function setParam(key, val) {
-    setParams((p) => ({ ...p, [key]: val }));
-  }
-
   function handleRun() {
     setError(null);
     setLoading(true);
-    startBalancing(datasetId, labelCol, method, params)
+    startBalancing(datasetId, labelCol, method, {})
       .then((r) => {
         setCurrentRunId(r.data.run_id);
         navigate("/processing");
@@ -94,45 +89,22 @@ export default function BalancingConfigPage() {
       {/* Parameter panel */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ fontWeight: 700, marginBottom: 16 }}>Parameters for {selectedMethod.title}</div>
-
-        {(method === "smote" || method === "combined") && (
-          <div className="param-row">
-            <label className="param-label">
-              k_neighbors <span className="badge badge-info" style={{ fontSize: 11 }}>default: 5</span>
-            </label>
-            <input
-              type="number"
-              className="param-input"
-              min={1} max={15}
-              value={params.k_neighbors}
-              onChange={(e) => setParam("k_neighbors", parseInt(e.target.value) || 5)}
-              style={{ maxWidth: 120 }}
-            />
-            <span className="param-hint">Number of nearest neighbours for SMOTE interpolation (1–15).</span>
-          </div>
-        )}
-
-        {(method === "nearmiss" || method === "combined") && (
-          <div className="param-row">
-            <label className="param-label">
-              n_neighbors <span className="badge badge-info" style={{ fontSize: 11 }}>default: 3</span>
-            </label>
-            <input
-              type="number"
-              className="param-input"
-              min={1} max={10}
-              value={params.n_neighbors}
-              onChange={(e) => setParam("n_neighbors", parseInt(e.target.value) || 3)}
-              style={{ maxWidth: 120 }}
-            />
-            <span className="param-hint">Number of nearest neighbours for NearMiss selection.</span>
-          </div>
-        )}
-
-        <button className="btn-link" style={{ fontSize: 13, marginTop: 4 }}
-          onClick={() => setParams({ k_neighbors: 5, version: 1, n_neighbors: 3, nearmiss_version: 1 })}>
-          Reset to safe defaults
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {(method === "smote" || method === "combined") && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 14 }}>
+              <span className="param-label" style={{ minWidth: 110 }}>k_neighbors</span>
+              <span className="badge badge-info" style={{ fontSize: 13 }}>5</span>
+              <span className="param-hint">Fixed — number of nearest neighbours for SMOTE interpolation.</span>
+            </div>
+          )}
+          {(method === "nearmiss" || method === "combined") && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 14 }}>
+              <span className="param-label" style={{ minWidth: 110 }}>n_neighbors</span>
+              <span className="badge badge-info" style={{ fontSize: 13 }}>3</span>
+              <span className="param-hint">Fixed — number of nearest neighbours for NearMiss selection.</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Method info */}
